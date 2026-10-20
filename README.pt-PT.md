@@ -1,5 +1,11 @@
 # Yokoi: Game & Watch Emulator — RGDS+ Edition
 
+  <img src="assets/Yokoi.png"  alt="Yokoi — Game & Watch Emulator for RGDS+" width="350">
+
+[![Descarregar](https://img.shields.io/badge/Descarregar-v1.1-blue?style=for-the-badge)](../../releases/latest)
+
+**ROMs não incluídas.** Cria o teu pack seguindo as instruções do projeto original.
+
 **[English](README.md) | [Português](README.pt-PT.md)**
 
 Adaptação nativa e standalone do Yokoi para **Anbernic RGDS+ com Stock OS
