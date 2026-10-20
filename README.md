@@ -2,7 +2,7 @@
 
   <img src="assets/Yokoi.png"  alt="Yokoi — Game & Watch Emulator for RGDS+" width="350">
 
-[![Download](https://img.shields.io/badge/Download-v1.1-blue?style=for-the-badge)](../../releases/latest)
+[![Download](https://img.shields.io/badge/Download-v1.1-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
 
 **No ROMs included.** Create your own pack using the original project's instructions.
 
