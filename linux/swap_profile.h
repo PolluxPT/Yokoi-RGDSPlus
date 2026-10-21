@@ -18,7 +18,7 @@ struct SwapBinding {
  bool button(int index,bool down){if(type!='B'||code!=index)return false;bool fire=down&&!held;held=down;return fire;}
 };
 struct SwapProfile {
- std::array<SwapBinding,2> bindings{}; bool ready=false;
+ std::array<SwapBinding,2> bindings{}; bool ready=false; int lastFired=-1;
  bool save(SDL_GameController*c,const char*path="swap-rgds-v1.cfg")const{
   std::string tmp=std::string(path)+".new";FILE*f=fopen(tmp.c_str(),"w");if(!f)return false;
   bool ok=fprintf(f,"%s\n",ButtonProfile::guid(c).c_str())>0;
@@ -36,11 +36,12 @@ struct SwapProfile {
  }
  bool event(const SDL_Event&e,SDL_JoystickID id){
   if(!ready)return false;bool fire=false;
-  for(auto&b:bindings){
-   if(e.type==SDL_JOYAXISMOTION&&e.jaxis.which==id)fire=b.axis(e.jaxis.axis,e.jaxis.value)||fire;
-   if((e.type==SDL_JOYBUTTONDOWN||e.type==SDL_JOYBUTTONUP)&&e.jbutton.which==id)fire=b.button(e.jbutton.button,e.type==SDL_JOYBUTTONDOWN)||fire;
-   if(e.type==SDL_KEYDOWN&&!e.key.repeat&&b.type=='K'&&b.code==e.key.keysym.scancode)fire=true;
+  for(size_t n=0;n<bindings.size();n++){auto&b=bindings[n];bool triggered=false;
+   if(e.type==SDL_JOYAXISMOTION&&e.jaxis.which==id)triggered=b.axis(e.jaxis.axis,e.jaxis.value);
+   if((e.type==SDL_JOYBUTTONDOWN||e.type==SDL_JOYBUTTONUP)&&e.jbutton.which==id)triggered=b.button(e.jbutton.button,e.type==SDL_JOYBUTTONDOWN);
+   if(e.type==SDL_KEYDOWN&&!e.key.repeat&&b.type=='K'&&b.code==e.key.keysym.scancode)triggered=true;
+   if(triggered){fire=true;lastFired=int(n);}
   }return fire;
  }
- bool key(int code)const{if(!ready)return false;for(const auto&b:bindings)if(b.type=='E'&&b.code==code)return true;return false;}
+ bool key(int code){if(!ready)return false;for(size_t n=0;n<bindings.size();n++)if(bindings[n].type=='E'&&bindings[n].code==code){lastFired=int(n);return true;}return false;}
 };

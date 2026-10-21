@@ -5,7 +5,7 @@ from PIL import Image,ImageDraw
 root=Path(__file__).resolve().parents[2]
 source=(root/'CONVERT_ROM/convert_3ds.py').read_text()
 node=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='write_rom_pack_v1')
-ns=dict(os=os,struct=struct,ROMPACK_FORMAT_VERSION=3,ROMPACK_CONTENT_VERSION=3,MANUFACTURER_NINTENDO='Nintendo',_manufacturer_to_id=lambda _:0)
+ns=dict(os=os,struct=struct,ROMPACK_FORMAT_VERSION=3,ROMPACK_CONTENT_VERSION=3,MANUFACTURER_NINTENDO='Nintendo',_manufacturer_to_id=lambda value: value if isinstance(value,int) else 0)
 exec(compile(ast.Module(body=[node],type_ignores=[]),'pack_writer','exec'),ns)
 out=Path('/tmp/yokoi-fixtures');out.mkdir(exist_ok=True)
 for typ,size,two,flags in [('sm5a',1856,False,0),('sm510',4096,True,0),('sm511',4096,True,2)]:
@@ -18,3 +18,17 @@ for typ,size,two,flags in [('sm5a',1856,False,0),('sm510',4096,True,0),('sm511',
  segs=[dict(id0=0,id1=0,id2=0,pos_scr_x=15,pos_scr_y=15,pos_tex_x=0,pos_tex_y=0,size_tex_x=32,size_tex_y=32,color_index=0,screen=s) for s in range(2 if two else 1)]
  g=dict(key='test',display_name='SYNTHETIC '+typ,ref='AC-01' if typ=='sm5a' else 'TEST',date='2026',rom_path=str(out/'test.rom'),melody_path=str(out/'test.melody') if typ=='sm511' else '',path_segment='segment_test.png',segments=segs,segment_info=[128,128,1,flags,128,128]+([128,128] if two else []),path_background='background_test.png',background_info=[128,128]+[0,0,128,128]*(2 if two else 1)+[0],path_console='console_test.png',console_info=[128,128,0,0,128,128])
  ns['write_rom_pack_v1']([g],str(out),str(out/f'{typ}.ykp'),platform=2)
+
+# Multi-manufacturer fixture for the Linux library regression; original diagnostics only.
+games=[]
+for index,(name,mfr) in enumerate([("Alpha",0),("Beta",0),("Gamma",1),("Delta",2)]):
+ for prefix in ("segment","background","console"):(out/f"{prefix}_test{index}.png").write_bytes((out/f"{prefix}_test.png").read_bytes())
+ item=dict(g);item.update(key="test"+str(index),display_name=name,ref="TEST"+str(index),manufacturer=mfr,path_segment=f"segment_test{index}.png",path_background=f"background_test{index}.png",path_console=f"console_test{index}.png");games.append(item)
+ns["write_rom_pack_v1"](games,str(out),str(out/"manufacturers.ykp"),platform=2)
+
+# Long lists expose accidental resets or wrapping on returning from a game.
+games=[]
+for mfr in range(3):
+ for pos in range(12):
+  item=dict(g);item.update(key="test",display_name=f"Maker {mfr} Game {pos:02}",ref=f"M{mfr}G{pos:02}",manufacturer=mfr);games.append(item)
+ns["write_rom_pack_v1"](games,str(out),str(out/"return-list.ykp"),platform=2)

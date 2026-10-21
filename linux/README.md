@@ -1,4 +1,4 @@
-# Yokoi Linux / RGDS+ — 1.2 Final
+# Yokoi Linux / RGDS+ — 1.3
 
 Native SDL2 frontend, no JNI/Android or RetroArch. Upstream base: f273025.
 
@@ -11,7 +11,7 @@ No SDL_image, SDL_ttf, OpenGL, Android SDK or embedded ROMs are required.
 
 For cross-compiling, set CXX, SDL_CFLAGS, SDL_LIBS, CPPFLAGS (sysroot),
 LDFLAGS and OUTPUT before invoking the script. Use ARM64 SDL headers/libraries.
-The distributed ARM64 binary was built using GCC 13.2 and glibc 2.39 cross
+The distributed ARM64 binary was built using GCC 13.3 and glibc 2.39 cross
 headers; the highest required libc symbol version is GLIBC_2.38. SDL is loaded
 from the Stock OS. The supplied C++ runtime comes from the user's working
 ScummVM package and provides the required GLIBCXX/CXXABI versions.
@@ -274,3 +274,8 @@ PT: Na primeira abertura, calibrar L2/R2. Os restantes botões mantêm a sua
 configuração. Para repetir apenas estes dois passos, apagar `swap-rgds-v1.cfg`.
 Manter START+SELECT permite ignorar um botão sem resposta. Só há troca de
 ecrãs durante o jogo, fora da pausa. Funcionamento L2/R2 confirmado pelo responsável do projeto na sua RGDS+.
+
+
+## 1.3
+
+See [PT/EN release notes](../RELEASE_NOTES_v1.3.md) for display settings, manufacturer filtering, English-first initialization, negotiated RGDS audio, entry-volume restoration, library return and validation limits.

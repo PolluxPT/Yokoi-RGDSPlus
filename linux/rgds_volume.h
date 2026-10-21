@@ -6,14 +6,16 @@
 
 class RgdsVolume {
  std::string stockPath,savedPath;
- int value=5,lastStock=-1;
+ int value=5,lastStock=-1,entryStock=-1;
  uint64_t nextPoll=0;
  bool read(const std::string&p,int&v){FILE*f=fopen(p.c_str(),"r");if(!f)return false;bool ok=fscanf(f,"%d",&v)==1;fclose(f);return ok&&v>=0&&v<=10;}
  bool write(const std::string&p,int v){FILE*f=fopen(p.c_str(),"w");if(!f)return false;bool ok=fprintf(f,"%d\n",v)>0;int result=fclose(f);return ok&&result==0;}
 public:
  uint64_t visibleUntil=0;
  explicit RgdsVolume(std::string stock="/sys/class/anbernic_misc/openbor_volume",std::string saved="volume-level.txt"):stockPath(stock),savedPath(saved){}
- void init(){int n;if(read(stockPath,n)){value=lastStock=n;}else if(read(savedPath,n))value=n;printf("RGDS volume: %d/10 curve=0.35*(level/10)^2\n",value);}
+ ~RgdsVolume(){restore();}
+ bool restore(){if(entryStock<0)return true;if(!write(stockPath,entryStock)){fprintf(stderr,"RGDS volume: could not restore entry level %d/10\n",entryStock);return false;}printf("RGDS volume: restored entry level %d/10\n",entryStock);entryStock=-1;return true;}
+ void init(){int n;if(read(stockPath,n)){value=lastStock=entryStock=n;}else if(read(savedPath,n))value=n;printf("RGDS volume: %d/10 curve=0.35*(level/10)^2\n",value);}
  void change(int delta,uint64_t now){
   if(!delta)return;
   value=std::clamp(value+delta,0,10);visibleUntil=now+1500;

@@ -38,6 +38,10 @@ int main(){
  {std::ofstream(stock)<<2;}assert(vol.poll(1000)&&vol.level()==2);
  RgdsVolume fallback(std::string(dir)+"/missing/stock",saved);fallback.init();assert(fallback.level()==10);
  fallback.change(-1,100);fallback.poll(1000);assert(fallback.level()==9);
+ assert(vol.restore());{std::ifstream(stock)>>persisted;}assert(persisted==5);assert(vol.restore());
+ // Scope exit restores the original system level, including mute and full volume.
+ for(int entry:{0,4,10}){{std::ofstream(stock)<<entry;}{RgdsVolume session(stock,saved);session.init();session.change(entry==10?-7:3,2000);}{std::ifstream(stock)>>persisted;}assert(persisted==entry);}
+ assert(fallback.restore());
  unlink(stock.c_str());unlink(saved.c_str());rmdir(dir);
  // Reproduce the old SDL mapping where buttons 6/7 are incorrectly Back/Start.
  assert(SDL_Init(SDL_INIT_GAMECONTROLLER)==0);
