@@ -2,19 +2,21 @@
 
   <img src="assets/Yokoi.png"  alt="Yokoi — Game & Watch Emulator for RGDS+" width="350">
 
-[![Descarregar](https://img.shields.io/badge/Descarregar-v1.1-blue?style=for-the-badge)](../../releases/latest)
+[![Descarregar](https://img.shields.io/badge/Descarregar-v1.2-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
 
 **ROMs não incluídas.** Cria o teu pack seguindo as instruções do projeto original.
 
 **[English](README.md) | [Português](README.pt-PT.md)**
 
 Adaptação nativa e standalone do Yokoi para **Anbernic RGDS+ com Stock OS
-(Linux ARM64)**. Versão **1.1**. Esta é uma versão Linux; não é o APK Android
+(Linux ARM64)**. Versão **1.2**. Esta é uma versão Linux; não é o APK Android
 do projeto original.
 
 Emulador original de **RetroValou**: [projeto Yokoi](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds).
 Projeto de adaptação à RGDS+: **Filipe Baeta**, desenvolvido com assistência
 do ChatGPT/Codex. Revisão original de base: `f273025`.
+
+> **Versão 1.2 — L2/R2 corrigidos:** troca de ecrãs confirmada pelo responsável do projeto na sua RGDS+ com Stock OS. Na primeira abertura após atualizar da v1.1, calibrar L2/R2; os restantes botões mantêm a configuração. A calibração da 1.2 RC1 também é conservada. Ver [notas PT/EN](RELEASE_NOTES_v1.2.md).
 
 ## ROMs não incluídas
 
@@ -56,7 +58,7 @@ Copiar o resultado para `Roms/APPS/Yokoi_RGDSPlus/yokoi_pack_rgds.ykp` no cartã
 
 ## Instalação — pacote de atualização
 
-A release v1.1 é uma **atualização para uma instalação Linux RGDS+ já funcional**.
+A release v1.2 é uma **atualização para uma instalação Linux RGDS+ já funcional**.
 Não inclui as bibliotecas de execução nem o pack de jogos.
 
 1. Extrair o ZIP da release e copiar `Roms` para a raiz do cartão, substituindo os ficheiros da aplicação.

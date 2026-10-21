@@ -1,4 +1,4 @@
-# Yokoi Linux / RGDS+ — 1.1 Final
+# Yokoi Linux / RGDS+ — 1.2 Final
 
 Native SDL2 frontend, no JNI/Android or RetroArch. Upstream base: f273025.
 
@@ -249,3 +249,28 @@ Pause title uses the 40px face. The first row now starts at y=112 instead of
 160; the footer and panel shrink by the same 48px. Touch row hitboxes follow
 the new origin. Capitalized PT/EN action labels in Pause, slot management
 and Advanced options (Slot, Confirm, Back, Select, Delete).
+
+## 1.2: physical L2/R2 calibration
+
+Stock Linux ARM64 update; L2/R2 operation confirmed by the maintainer on their RGDS+. L2/R2 no longer
+rely on SDL's generic controller trigger mapping. On upgrade, only these two
+controls are requested. The existing eight-button and special R profiles stay
+unchanged. Configure buttons in Advanced options repeats all controls.
+
+Bindings are stored separately in `swap-rgds-v1.cfg`, matched to the controller
+GUID. Sources: raw SDL joystick button, raw axis (rest/direction and hysteresis),
+keyboard scancode, or evdev key. Generic SDL controller axis events are ignored
+to prevent duplicate swaps. Hold START+SELECT to skip an unavailable trigger;
+a skipped trigger is disabled until recalibration. Delete only this file to
+repeat L2/R2 setup. Menu display roles remain fixed; swap only during gameplay.
+
+Validation: `tests/swap_profile.cpp` covers edges, neutral values, both axis
+directions, hysteresis, source/device isolation, persistence and keyboard/evdev.
+`tests/ui_flow.cpp` verifies each swap independently through an atomic counter,
+including a held press; run again with `YOKOI_TEST_DIGITAL=1` for digital L2/R2
+and `YOKOI_TEST_SPECIAL_KEY=1` for keyboard special R.
+
+PT: Na primeira abertura, calibrar L2/R2. Os restantes botões mantêm a sua
+configuração. Para repetir apenas estes dois passos, apagar `swap-rgds-v1.cfg`.
+Manter START+SELECT permite ignorar um botão sem resposta. Só há troca de
+ecrãs durante o jogo, fora da pausa. Funcionamento L2/R2 confirmado pelo responsável do projeto na sua RGDS+.
