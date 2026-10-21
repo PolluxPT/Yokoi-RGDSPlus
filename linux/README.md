@@ -1,4 +1,4 @@
-# Yokoi Linux / RGDS+ — 1.2 Final
+# Yokoi Linux / RGDS+ — 1.1 Final
 
 Native SDL2 frontend, no JNI/Android or RetroArch. Upstream base: f273025.
 
@@ -16,6 +16,30 @@ headers; the highest required libc symbol version is GLIBC_2.38. SDL is loaded
 from the Stock OS. The supplied C++ runtime comes from the user's working
 ScummVM package and provides the required GLIBCXX/CXXABI versions.
 
+### ARM64 build on an x86-64 Ubuntu/Linux Mint host
+
+Run `bash linux/build-rgds.sh`. No container, sudo, or system package changes
+are needed. Prerequisites are Bash, curl, tar/xz, sha256sum, flock, apt-get,
+dpkg-deb, readelf, and the Ubuntu archive keyring (`ubuntu-keyring`).
+
+The script caches the official Arm GNU 13.2.Rel1 **Linux** toolchain under
+`${XDG_CACHE_HOME:-$HOME/.cache}/yokoi-rgds`, verifies its pinned SHA-256, and
+uses an isolated APT configuration to download authenticated Ubuntu 22.04
+ARM64 SDL2 headers and link-time libraries. Override the cache location with
+`YOKOI_RGDS_CACHE=/absolute/path` (without whitespace). Later runs reuse the
+cache. Bare-metal `arm-none-eabi` / `aarch64-none-elf` compilers are not suitable.
+
+Output defaults to `linux/build/yokoi-rgds`; `OUTPUT` and `MAIN_SOURCE` can be
+overridden as with the regular build. The script checks the ARM64 ELF target,
+Linux interpreter, and maximum GLIBC_2.38 / GLIBCXX_3.4.31 requirements matching
+the existing release. It does not execute the ARM64 result on the host.
+Device testing is still required.
+
+Only SDL itself is staged for linking; unresolved SDL backend dependencies are
+intentionally left to the device's existing runtime. Do not deploy the cached
+SDL library or compiler sysroot. Back up the installed `yokoi`, replace it with
+the new executable, and keep the launcher, libraries, pack, settings and saves.
+
 ## Run
 
 Place an RGDS/Android pack `yokoi_pack_rgds.ykp` next to the executable, or
@@ -32,6 +56,15 @@ firmware SDL2 Wayland/ALSA backends, and records `Yokoi_Arranque.txt`.
 It doesn't use the ScummVM preload screen shims; SDL creates two independent
 fullscreen windows. Display ordering and controller mapping require testing
 on the actual device. L2 and R2 swap game panel roles; the library always keeps the list above the cover.
+
+Audio requests 48kHz signed 16-bit stereo output first, then retries mono if
+opening fails. SDL is also allowed to negotiate the channel count, but this
+alone is insufficient on ALSA devices that reject mono during initialization. The
+emulator's mono sound is converted to the negotiated channels; startup and
+resume both queue 40ms of silence in that output format. The startup log
+records the selected audio driver, rate, channels and buffer size when a game
+starts. An `ALSA: Couldn't set audio channels` error means the output device
+could not accept the requested channel configuration, not that volume is muted.
 
 ## Tests
 
@@ -122,6 +155,11 @@ Tests:
   Build with MAIN_SOURCE=linux/tests/calibration_flow.cpp; run with dummy SDL
   drivers. It saves a temporary profile and checks all eight raw indices.
 - tests/audio_filter.cpp: stable 4096Hz tone, DC rejection, silence and mute.
+- tests/audio_output.cpp: strict stereo/mono devices, mono retry, channel
+  negotiation, total opening failure, sample conversion and 40ms startup/resume
+  prefill. Build with
+  `MAIN_SOURCE=linux/tests/audio_output.cpp OUTPUT=linux/build/audio_output linux/build.sh`,
+  then run `linux/build/audio_output` (uses SDL's dummy audio device).
 
 
 ## Version 0.4
@@ -249,28 +287,3 @@ Pause title uses the 40px face. The first row now starts at y=112 instead of
 160; the footer and panel shrink by the same 48px. Touch row hitboxes follow
 the new origin. Capitalized PT/EN action labels in Pause, slot management
 and Advanced options (Slot, Confirm, Back, Select, Delete).
-
-## 1.2: physical L2/R2 calibration
-
-Stock Linux ARM64 update; L2/R2 operation confirmed by the maintainer on their RGDS+. L2/R2 no longer
-rely on SDL's generic controller trigger mapping. On upgrade, only these two
-controls are requested. The existing eight-button and special R profiles stay
-unchanged. Configure buttons in Advanced options repeats all controls.
-
-Bindings are stored separately in `swap-rgds-v1.cfg`, matched to the controller
-GUID. Sources: raw SDL joystick button, raw axis (rest/direction and hysteresis),
-keyboard scancode, or evdev key. Generic SDL controller axis events are ignored
-to prevent duplicate swaps. Hold START+SELECT to skip an unavailable trigger;
-a skipped trigger is disabled until recalibration. Delete only this file to
-repeat L2/R2 setup. Menu display roles remain fixed; swap only during gameplay.
-
-Validation: `tests/swap_profile.cpp` covers edges, neutral values, both axis
-directions, hysteresis, source/device isolation, persistence and keyboard/evdev.
-`tests/ui_flow.cpp` verifies each swap independently through an atomic counter,
-including a held press; run again with `YOKOI_TEST_DIGITAL=1` for digital L2/R2
-and `YOKOI_TEST_SPECIAL_KEY=1` for keyboard special R.
-
-PT: Na primeira abertura, calibrar L2/R2. Os restantes botões mantêm a sua
-configuração. Para repetir apenas estes dois passos, apagar `swap-rgds-v1.cfg`.
-Manter START+SELECT permite ignorar um botão sem resposta. Só há troca de
-ecrãs durante o jogo, fora da pausa. Funcionamento L2/R2 confirmado pelo responsável do projeto na sua RGDS+.

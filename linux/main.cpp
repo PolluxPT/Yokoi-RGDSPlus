@@ -25,17 +25,29 @@ using menu::tr;
 #include "rgds_input.h"
 #include "rgds_volume.h"
 #include "button_profile.h"
-#include "swap_profile.h"
 #include "emu_worker.h"
 static volatile sig_atomic_t stopped=0;
 static void stop(int){stopped=1;}
+static SDL_AudioDeviceID openAudioOutput(SDL_AudioSpec&have){
+ SDL_AudioSpec want{};want.freq=48000;want.format=AUDIO_S16SYS;want.samples=1024;
+ // ALSA can reject mono before SDL can negotiate a different channel count.
+ for(Uint8 channels:{2,1}){
+  want.channels=channels;
+  auto audio=SDL_OpenAudioDevice(nullptr,0,&want,&have,SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
+  if(audio){printf("Audio: driver=%s rate=%d channels=%u samples=%u\n",SDL_GetCurrentAudioDriver(),have.freq,unsigned(have.channels),unsigned(have.samples));return audio;}
+  fprintf(stderr,"Audio: requested channels=%u: %s\n",unsigned(channels),SDL_GetError());
+ }
+ return 0;
+}
+static bool prefillAudio(SDL_AudioDeviceID audio,const SDL_AudioSpec&spec){
+ std::vector<int16_t>silence(size_t(spec.freq)*40/1000*spec.channels,0);
+ if(SDL_QueueAudio(audio,silence.data(),Uint32(silence.size()*sizeof(int16_t)))<0){fprintf(stderr,"Audio prefill: %s\n",SDL_GetError());return false;}
+ return true;
+}
 struct Panel {SDL_Window* w=nullptr; SDL_Renderer* r=nullptr; SDL_Texture *seg=nullptr,*bg=nullptr,*console=nullptr,*staticLayer=nullptr,*font=nullptr;int cachedScreen=-1;bool cachedCombined=false;};
 static Panel panels[2];
 static int np=0;
 static bool swapPanels=false;
-#ifdef YOKOI_TEST_SWAPS
-static std::atomic<int> testSwapCount{0};
-#endif
 static void text(Panel&p,int x,int y,const std::string&s,int scale=2){ui::label(p.r,p.font,x,y,s,scale>=5?4:scale>=3?3:1);}
 static void label(Panel&p,int x,int y,const std::string&s,int face=1,uint32_t color=0xeef2f5,int width=940){ui::label(p.r,p.font,x,y,s,face,color,width);}
 static void selectionRow(Panel&p,int x,int y,int w,int h,bool selected){if(selected){ui::rect(p.r,x,y,w,h,menu::selection);ui::rect(p.r,x,y,5,h,menu::highlight);}}
@@ -154,58 +166,10 @@ static bool calibrateButtons(ButtonProfile&profile,SDL_GameController*ctl,RgdsIn
  if(!profile.save(ctl)||!profile.saveSpecial(ctl)){fprintf(stderr,"Nao foi possivel guardar buttons-rgds-v2.cfg\n");return false;}
  return profile.load(ctl);
 }
-// Calibrate only the missing trigger bindings on upgrade; retain all existing controls.
-static bool calibrateSwap(SwapProfile&target,const ButtonProfile&profile,SDL_GameController*ctl,RgdsInput&raw,RgdsVolume&volume){
- auto*j=SDL_GameControllerGetJoystick(ctl);SwapProfile next;int stage=0;bool armed=false;
- uint64_t releasedSince=0,skipSince=0;std::vector<int> neutral(SDL_JoystickNumAxes(j));
- auto reserved=[&](char type,int code){
-  if(type=='B'&&profile.reserved(code))return true;
-  if(profile.specialType==type&&profile.special==code)return true;
-  for(int i=0;i<stage;i++)if(next.bindings[i].type==type&&next.bindings[i].code==code&&type!='A')return true;
-  return false;
- };
- while(!stopped&&stage<2){
-  uint64_t now=SDL_GetTicks64();raw.poll(now);raw.takePresses();auto keys=raw.takeKeys();volume.poll(now);volume.change(raw.volumeDelta(now),now);
-  SDL_Event e;SwapBinding captured;bool got=false,otherButton=false;
-  while(SDL_PollEvent(&e)){
-   if(e.type==SDL_QUIT||(e.type==SDL_KEYDOWN&&e.key.keysym.sym==SDLK_ESCAPE))return false;
-   if(!armed||got)continue;
-   if(e.type==SDL_JOYBUTTONDOWN&&e.jbutton.which==SDL_JoystickInstanceID(j)){
-    otherButton=true;if(!reserved('B',e.jbutton.button)){captured.type='B';captured.code=e.jbutton.button;got=true;}
-   }
-   if(e.type==SDL_JOYAXISMOTION&&e.jaxis.which==SDL_JoystickInstanceID(j)&&e.jaxis.axis<neutral.size()){
-    int axis=e.jaxis.axis,delta=int(e.jaxis.value)-neutral[axis];
-    if(abs(delta)>=16000){captured.type='A';captured.code=axis;captured.rest=neutral[axis];captured.direction=delta>0?1:-1;
-     got=true;for(int i=0;i<stage;i++)if(next.bindings[i].type=='A'&&next.bindings[i].code==axis&&next.bindings[i].direction==captured.direction)got=false;
-    }
-   }
-   if(e.type==SDL_KEYDOWN&&!e.key.repeat&&!reserved('K',e.key.keysym.scancode)&&e.key.keysym.scancode!=SDL_SCANCODE_VOLUMEUP&&e.key.keysym.scancode!=SDL_SCANCODE_VOLUMEDOWN){captured.type='K';captured.code=e.key.keysym.scancode;got=true;}
-  }
-  bool held=false;for(int n=0;n<SDL_JoystickNumButtons(j);n++)held|=SDL_JoystickGetButton(j,n)!=0;
-  if(armed&&!got&&!held&&!otherButton)for(auto key:keys)if(key!=KEY_VOLUMEUP&&key!=KEY_VOLUMEDOWN&&!reserved('E',key)){captured.type='E';captured.code=key;got=true;break;}
-  bool skip=SDL_JoystickGetButton(j,profile.buttons[0])&&SDL_JoystickGetButton(j,profile.buttons[1]);
-  if(skip){if(!skipSince)skipSince=now;if(now-skipSince>800){captured=SwapBinding();got=true;}}else skipSince=0;
-  if(got){next.bindings[stage++]=captured;armed=false;releasedSince=0;skipSince=0;}
-  // Wait for the previous trigger to return to rest before sampling the next baseline.
-  for(int n=0;n<stage;n++){auto&b=next.bindings[n];if(b.type=='A')held|=abs(int(SDL_JoystickGetAxis(j,b.code))-b.rest)>=6000;if(b.type=='K')held|=SDL_GetKeyboardState(nullptr)[b.code]!=0;}
-  if(!armed){if(held)releasedSince=0;else{if(!releasedSince)releasedSince=now;if(now-releasedSince>=250){for(size_t n=0;n<neutral.size();n++)neutral[n]=SDL_JoystickGetAxis(j,n);armed=true;}}}
-  if(stage>=2)break;
-  for(int i=0;i<np;i++){auto&p=panels[i];clear(p);menuHeader(p,40,45,944,tr("Definir L2 / R2","Configure L2 / R2"));
-   text(p,40,160,std::string(tr("Passo ","Step "))+std::to_string(stage+1)+" / 2");
-   text(p,40,245,armed?tr("Premir o botão físico:","Press the physical button:"):tr("Soltar todos os botões...","Release all buttons..."));
-   selectionRow(p,28,315,968,90,true);label(p,49,337,stage?"R2":"L2",2,menu::fg);
-   ui::rect(p.r,40,510,944,1,menu::line);text(p,40,540,tr("L2 / R2: trocar ecrãs durante o jogo.","L2 / R2: swap screens during gameplay."));
-   text(p,40,600,tr("Soltar o botão antes do passo seguinte.","Release the button before the next step."));
-   text(p,40,655,tr("Sem resposta: manter START+SELECT para ignorar.","No response: hold START+SELECT to skip."));SDL_RenderPresent(p.r);}
-  SDL_Delay(8);
- }
- if(stopped)return false;
- next.ready=true;if(!next.save(ctl))return false;target=next;return target.load(ctl);
-}
 int main(int argc,char**argv){
  const Uint64 startupStart=SDL_GetTicks64();
  setvbuf(stdout,nullptr,_IONBF,0);signal(SIGTERM,stop);signal(SIGINT,stop);
- if(argc>1&&!strcmp(argv[1],"--version")){puts("Yokoi RGDS+ Linux 1.2 Final / upstream f273025");return 0;}
+ if(argc>1&&!strcmp(argv[1],"--version")){puts("Yokoi RGDS+ Linux 1.1 Final / upstream f273025");return 0;}
  bool smoke=argc>1&&(!strcmp(argv[1],"--smoke-test")||!strcmp(argv[1],"--test-game"));
  bool testGame=argc>1&&!strcmp(argv[1],"--test-game");
  const char*pack=smoke&&argc>2?argv[2]:(argc>1&&!smoke?argv[1]:"yokoi_pack_rgds.ykp");
@@ -233,16 +197,12 @@ int main(int argc,char**argv){
  if(!smoke&&ctl&&(!mapped||!specialMapped)&&!calibrateButtons(profile,ctl,raw,volume)){
   for(int i=0;i<np;i++){if(panels[i].font)SDL_DestroyTexture(panels[i].font);SDL_DestroyRenderer(panels[i].r);SDL_DestroyWindow(panels[i].w);}SDL_GameControllerClose(ctl);SDL_Quit();return 0;
  }
- SwapProfile swapProfile;
- if(ctl&&!swapProfile.load(ctl)&&!smoke&&!calibrateSwap(swapProfile,profile,ctl,raw,volume)){
-  for(int i=0;i<np;i++){if(panels[i].font)SDL_DestroyTexture(panels[i].font);SDL_DestroyRenderer(panels[i].r);SDL_DestroyWindow(panels[i].w);}SDL_GameControllerClose(ctl);SDL_Quit();return 0;
- }
  printf("Emulation=independent wall-clock thread; nominal render=60 Hz; audio=1024 frames + 40ms prefill + DC/lowpass filter\n");
  const Uint64 packStart=SDL_GetTicks64();
  std::string err;bool loaded=gw_pack::load(pack,&err);printf("Pack: %s / %s\n",pack,loaded?"OK":err.c_str());
  printf("Startup: SDL/input=%llums pack=%llums\n",(unsigned long long)(packStart-startupStart),(unsigned long long)(SDL_GetTicks64()-packStart));
  size_t count=gw_pack::game_count(),selected=0;bool playing=false,paused=false;int pauseSelection=0,slot=1,advancedSelection=0;bool managing=false,advanced=false;int confirmation=0;bool confirmYes=false;std::string toast;uint64_t toastUntil=0;std::unique_ptr<SM5XX>cpu;std::unique_ptr<Virtual_Input>input;const GW_rom*g=nullptr;std::vector<Segment>segs;
- SDL_AudioDeviceID audio=0;SDL_AudioStream*stream=nullptr;uint32_t prev=0;EmuWorker worker;
+ SDL_AudioDeviceID audio=0;SDL_AudioSpec audioSpec{};SDL_AudioStream*stream=nullptr;uint32_t prev=0;EmuWorker worker;
  auto silence=[&](){worker.stop();if(audio){SDL_ClearQueuedAudio(audio);SDL_CloseAudioDevice(audio);audio=0;}if(stream){SDL_FreeAudioStream(stream);stream=nullptr;}};
  auto selectGame=[&](){g=gw_pack::game_at(selected);for(int i=0;i<np;i++){drop(panels[i]);if(g&&i==1)panels[i].console=texture(panels[i],g->path_console);}};
  auto prepareGameGraphics=[&](){for(int i=0;i<np;i++){auto&p=panels[i];if(!p.seg)p.seg=texture(p,g->path_segment,!(g->segment_info[3]&1));if(!p.bg)p.bg=texture(p,g->path_background);if(!p.console)p.console=texture(p,g->path_console);}};
@@ -250,13 +210,18 @@ int main(int argc,char**argv){
   if(cpu->get_cpu_type_id()==2&&(!g->melody||g->size_melody<256)){err="ROM de melodia ausente/incompleta";fprintf(stderr,"%s: %s\n",g->name.c_str(),err.c_str());cpu.reset();return;}
   cpu->load_rom(g->rom,g->size_rom);cpu->load_rom_melody(g->melody,g->size_melody);cpu->init();cpu->load_rom_time_addresses(g->ref);yokoi_cpu_set_time_if_needed(cpu.get());input.reset(get_input_config(cpu.get(),g->ref));if(input)cpu->set_input_multiplexage(input->use_multiplexage);
   segs.assign(g->segment,g->segment+g->size_segment);for(auto&s:segs)s.state=s.buffer_state=false;
-  SDL_AudioSpec want{},have{};want.freq=48000;want.format=AUDIO_S16SYS;want.channels=1;want.samples=1024;
-  audio=SDL_OpenAudioDevice(nullptr,0,&want,&have,0);if(audio){stream=SDL_NewAudioStream(AUDIO_S16SYS,1,cpu->frequency/std::max(1u,cpu->sound_divide_frequency),have.format,have.channels,have.freq);if(stream){std::vector<int16_t>prefill(have.freq*40/1000,0);SDL_QueueAudio(audio,prefill.data(),prefill.size()*2);SDL_PauseAudioDevice(audio,0);}else silence();}else fprintf(stderr,"Audio: %s\n",SDL_GetError());
+  audio=openAudioOutput(audioSpec);
+  if(audio){
+   stream=SDL_NewAudioStream(AUDIO_S16SYS,1,cpu->frequency/std::max(1u,cpu->sound_divide_frequency),audioSpec.format,audioSpec.channels,audioSpec.freq);
+   if(!stream){fprintf(stderr,"Audio stream: %s\n",SDL_GetError());silence();}
+   else if(!prefillAudio(audio,audioSpec))silence();
+   else SDL_PauseAudioDevice(audio,0);
+  }
   printf("Game: %s (%s), mode=%d\n",g->name.c_str(),g->ref.c_str(),mode);worker.gain=volume.gain();worker.start(cpu.get(),input.get(),segs,audio,stream,mode);playing=true;paused=false;
  };
  auto resume=[&](){
   if(!playing)return;if(stream)SDL_AudioStreamClear(stream);
-  if(audio){SDL_ClearQueuedAudio(audio);std::vector<int16_t>z(1920,0);SDL_QueueAudio(audio,z.data(),z.size()*2);SDL_PauseAudioDevice(audio,0);}
+  if(audio){SDL_ClearQueuedAudio(audio);if(prefillAudio(audio,audioSpec))SDL_PauseAudioDevice(audio,0);else silence();}
   worker.gain=volume.gain();worker.start(cpu.get(),input.get(),segs,audio,stream,-1);paused=false;
  };
  auto pause=[&](){if(!playing||paused)return;worker.stop();worker.snapshot(segs);if(audio){SDL_PauseAudioDevice(audio,1);SDL_ClearQueuedAudio(audio);}paused=true;pauseSelection=0;};
@@ -269,9 +234,8 @@ int main(int argc,char**argv){
  while(!stopped){
   uint64_t nowMs=SDL_GetTicks64();raw.poll(nowMs);raw.takePresses();auto rawKeys=raw.takeKeys();
   std::vector<Gesture>gestures=touch.poll(nowMs);SDL_Event e;bool quit=false,toggle=false,swap=false,previousLetter=false,nextLetter=false;uint32_t presses=0;
-  for(auto key:rawKeys){if(swapProfile.key(key))swap=true;if(profile.specialType=='E'&&int(key)==profile.special)toggle=true;printf("RGDS key down: %u\n",key);}
+  for(auto key:rawKeys){if(profile.specialType=='E'&&int(key)==profile.special)toggle=true;printf("RGDS key down: %u\n",key);}
   while(SDL_PollEvent(&e)){
-   if(ctl&&swapProfile.event(e,SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(ctl))))swap=true;
    if(e.type==SDL_QUIT){if(playing){pause();confirmation=1;confirmYes=false;}else{confirmation=1;confirmYes=false;}}
    if(e.type==SDL_CONTROLLERDEVICEADDED||e.type==SDL_CONTROLLERDEVICEREMOVED)openController();
    if(e.type==SDL_KEYDOWN&&!e.key.repeat){if(e.key.keysym.sym==SDLK_ESCAPE||e.key.keysym.sym==SDLK_p)toggle=true;if(e.key.keysym.sym==SDLK_F2)swap=true;if(profile.specialType=='K'&&e.key.keysym.scancode==profile.special)toggle=true;if(e.key.keysym.sym==SDLK_PAGEUP)previousLetter=true;if(e.key.keysym.sym==SDLK_PAGEDOWN)nextLetter=true;}
@@ -287,6 +251,9 @@ int main(int argc,char**argv){
     if(profile.ready){presses|=profile.press(e.jbutton.button);if(profile.swapPress(e.jbutton.button))nextLetter=true;if(e.jbutton.button==profile.buttons[2])previousLetter=true;}
     if(profile.specialType=='B'&&e.jbutton.button==profile.special)toggle=true;printf("RGDS joystick down: %u\n",e.jbutton.button);
    }
+   if(e.type==SDL_CONTROLLERAXISMOTION&&(e.caxis.axis==SDL_CONTROLLER_AXIS_TRIGGERLEFT||e.caxis.axis==SDL_CONTROLLER_AXIS_TRIGGERRIGHT)){
+    static bool triggerHeld[2]{};int n=e.caxis.axis==SDL_CONTROLLER_AXIS_TRIGGERRIGHT;bool held=e.caxis.value>16000;if(held&&!triggerHeld[n])swap=true;triggerHeld[n]=held;
+   }
    if(!touch.available()&&(e.type==SDL_FINGERDOWN||e.type==SDL_FINGERUP)){
     if(e.type==SDL_FINGERDOWN)sdlGesture.down(e.tfinger.x,e.tfinger.y,nowMs);else{int panel=1;for(int i=0;i<np;i++)if(SDL_GetWindowID(panels[i].w)==e.tfinger.windowID)panel=i;gestures.push_back(sdlGesture.up(e.tfinger.x,e.tfinger.y,nowMs,panel));}
    }
@@ -300,11 +267,7 @@ int main(int argc,char**argv){
   latch.press(presses,nowMs);uint32_t m=latch.apply(mask(ctl,profile),nowMs),edge=m&~prev;prev=m;
   if((m&(CTL_START|CTL_SELECT))==(CTL_START|CTL_SELECT)&&(edge&(CTL_START|CTL_SELECT)))toggle=true;
   if(toggle){if(confirmation){confirmation=0;}else if(advanced){advanced=false;}else if(managing){managing=false;}else if(playing){if(paused)resume();else pause();}else{confirmation=1;confirmYes=false;}}
-  if(swap&&playing&&!paused){swapPanels=!swapPanels;
-#ifdef YOKOI_TEST_SWAPS
- ++testSwapCount;
-#endif
- printf("RGDS screen swap: %s\n",swapPanels?"swapped":"normal");}
+  if(swap&&playing&&!paused)swapPanels=!swapPanels;
   bool activate=false;
   for(auto&gesture:gestures){
    if(confirmation&&gesture.tap){if(gesture.y>.55f&&gesture.y<.69f){confirmYes=gesture.x>.5f;activate=true;}continue;}
@@ -328,7 +291,7 @@ int main(int argc,char**argv){
     if(edge&CTL_B)advanced=false;
     else if(activate||(edge&(CTL_A|CTL_START))){
      if(advancedSelection==0){menu::english=!menu::english;if(!menu::saveLanguage())notify(tr("Erro ao guardar idioma","Could not save language"));}
-     else if(advancedSelection==1&&ctl){ButtonProfile revised=profile;if(calibrateButtons(revised,ctl,raw,volume,true)){profile=revised;calibrateSwap(swapProfile,profile,ctl,raw,volume);}prev=0;latch=PressLatch();raw.takeKeys();}
+     else if(advancedSelection==1&&ctl){ButtonProfile revised=profile;if(calibrateButtons(revised,ctl,raw,volume,true))profile=revised;prev=0;latch=PressLatch();raw.takeKeys();}
      else if(advancedSelection==2)advanced=false;
     }
    }else if(edge&CTL_X){advanced=true;advancedSelection=0;}
