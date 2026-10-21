@@ -2,21 +2,22 @@
 
   <img src="assets/Yokoi.png"  alt="Yokoi — Game & Watch Emulator for RGDS+" width="350">
 
-[![Descarregar](https://img.shields.io/badge/Descarregar-v1.2-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
+[![Descarregar](https://img.shields.io/badge/Descarregar-v1.3-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
 
 **ROMs não incluídas.** Cria o teu pack seguindo as instruções do projeto original.
 
 **[English](README.md) | [Português](README.pt-PT.md)**
 
 Adaptação nativa e standalone do Yokoi para **Anbernic RGDS+ com Stock OS
-(Linux ARM64)**. Versão **1.2**. Esta é uma versão Linux; não é o APK Android
+(Linux ARM64)**. Versão **1.3**. Esta é uma versão Linux; não é o APK Android
 do projeto original.
 
 Emulador original de **RetroValou**: [projeto Yokoi](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds).
 Projeto de adaptação à RGDS+: **Filipe Baeta**, desenvolvido com assistência
 do ChatGPT/Codex. Revisão original de base: `f273025`.
 
-> **Versão 1.2 — L2/R2 corrigidos:** troca de ecrãs confirmada pelo responsável do projeto na sua RGDS+ com Stock OS. Na primeira abertura após atualizar da v1.1, calibrar L2/R2; os restantes botões mantêm a configuração. A calibração da 1.2 RC1 também é conservada. Ver [notas PT/EN](RELEASE_NOTES_v1.2.md).
+
+> **1.3:** Barras pretas, Segmentos/Cor de fundo, fabricantes com L2/R2, primeira utilização em inglês e correção de compatibilidade áudio SDL/ALSA para RGDS. Som na RGDS confirmado pelo utilizador. Mantém também o jogo selecionado no regresso à biblioteca. Ver [notas PT/EN](RELEASE_NOTES_v1.3.md).
 
 ## ROMs não incluídas
 
@@ -49,16 +50,16 @@ Copiar o resultado para `Roms/APPS/Yokoi_RGDSPlus/yokoi_pack_rgds.ykp` no cartã
 - Dois ecrãs SDL2 e fundos dos Panorama Screen corrigidos.
 - Interface PT/EN, menus azuis, opções avançadas e calibração dos botões.
 - Touch: deslizar para escolher e dois toques para GAME A.
-- L1/R1 para saltos por letra e L2/R2 para trocar os ecrãs durante o jogo.
+- L1/R1 para saltos por letra; L2/R2 para fabricantes na biblioteca e troca de ecrãs no jogo.
 - Botão R calibrado para Pausa, com alternativa START+SELECT.
 - Três slots manuais por jogo e gestão para apagar estados.
 - Confirmação para apagar/sair e novos GAME A/B através da pausa.
-- Botões de volume e curva suave nos níveis iniciais.
 - Carregamento das imagens de emulação apenas ao entrar no jogo.
+- Botões físicos com curva `0,35 × (nível/10)²`; o volume inicial da consola é reposto à saída.
 
 ## Instalação — pacote de atualização
 
-A release v1.2 é uma **atualização para uma instalação Linux RGDS+ já funcional**.
+A release v1.3 é uma **atualização para uma instalação Linux RGDS+ já funcional**.
 Não inclui as bibliotecas de execução nem o pack de jogos.
 
 1. Extrair o ZIP da release e copiar `Roms` para a raiz do cartão, substituindo os ficheiros da aplicação.
@@ -79,7 +80,8 @@ bibliotecas **não são distribuídas nesta release**. Ver `linux/README.md`.
 | Lista de jogos | SELECT | GAME B |
 | Lista de jogos | Y | Carregar um slot ocupado |
 | Lista de jogos | L1 / R1 | Letra anterior / seguinte |
-| Lista de jogos | X | Opções avançadas: idioma, botões e voltar |
+| Lista de jogos | L2 / R2 | Fabricante anterior / seguinte |
+| Lista de jogos | X | Opções avançadas: segmentos, cor de fundo, idioma, botões e voltar |
 | Lista de jogos | R | Sair, com confirmação |
 | Durante o jogo | R ou START+SELECT | Pausa |
 | Durante o jogo | L2 / R2 | Trocar ecrãs |

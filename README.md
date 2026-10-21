@@ -2,20 +2,21 @@
 
   <img src="assets/Yokoi.png"  alt="Yokoi — Game & Watch Emulator for RGDS+" width="350">
 
-[![Download](https://img.shields.io/badge/Download-v1.2-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
+[![Download](https://img.shields.io/badge/Download-v1.3-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
 
 **No ROMs included.** Create your own pack using the original project's instructions.
 
 **[English](README.md) | [Português](README.pt-PT.md)**
 
 Native standalone port of Yokoi for **Anbernic RGDS+ Stock OS (Linux ARM64)**.
-Version **1.2**. This is a Linux port; it is not the upstream Android APK.
+Version **1.3**. This is a Linux port; it is not the upstream Android APK.
 
 Original emulator by **RetroValou**: [https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds).
 RGDS+ adaptation project: **Filipe Baeta**, developed with assistance from ChatGPT/Codex.
 Upstream base revision: `f273025`.
 
-> **Version 1.2 — L2/R2 fixed:** screen swapping confirmed by the project maintainer on their RGDS+ running Stock OS. On first launch after upgrading from v1.1, calibrate L2/R2; other button settings are retained. Existing 1.2 RC1 trigger calibration is also retained. See [PT/EN release notes](RELEASE_NOTES_v1.2.md).
+
+> **1.3:** Black bars, Segments/Background color, manufacturer navigation with L2/R2, English on first run, and an SDL/ALSA audio compatibility fix for RGDS. RGDS audio confirmed by the user. Also retains the selected game when returning to the library. See [PT/EN release notes](RELEASE_NOTES_v1.3.md).
 
 ## No ROMs included
 
@@ -47,16 +48,16 @@ The **3DS pack is not supported**. Do not upload your generated pack here.
 - Two-screen SDL2 rendering and corrected Panorama mask backgrounds.
 - PT/EN interface, blue menus, advanced options and controller calibration.
 - Touch swipe to browse; double tap for GAME A.
-- L1/R1 alphabetic jumps; L2/R2 game-screen swap.
+- L1/R1 alphabetic jumps; L2/R2 manufacturer selection in the library and game-screen swap.
 - Calibrated Anbernic R button for Pause; START+SELECT fallback.
 - Three manual save-state slots per game and slot deletion management.
 - Exit/delete confirmation; GAME A/B restart through Pause.
-- Volume buttons and smooth low-volume curve.
 - Lazy loading of emulation textures to reduce menu startup work.
+- Volume buttons use `0.35 × (level/10)²`; the console volume on entry is restored on exit.
 
 ## Installation — update package
 
-The downloadable v1.2 release is an **update for an existing working RGDS+ Linux
+The downloadable v1.3 release is an **update for an existing working RGDS+ Linux
 installation**. It does not include runtime libraries or a game pack.
 
 1. Extract the release ZIP and copy `Roms` to the SD-card root; replace the app files.
@@ -77,7 +78,8 @@ runtime libraries are **not distributed in this release**; see `linux/README.md`
 | Game list | SELECT | GAME B |
 | Game list | Y | Load an occupied save slot |
 | Game list | L1 / R1 | Previous / next initial |
-| Game list | X | Advanced options: language, buttons, back |
+| Game list | L2 / R2 | Previous / next manufacturer |
+| Game list | X | Advanced options: segments, background color, language, buttons, back |
 | Game list | R | Confirm exit |
 | Gameplay | R or START+SELECT | Pause |
 | Gameplay | L2 / R2 | Swap game screens |
