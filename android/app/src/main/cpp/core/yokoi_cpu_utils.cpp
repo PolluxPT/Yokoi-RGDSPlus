@@ -13,7 +13,8 @@ void yokoi_cpu_set_time_if_needed(SM5XX* cpu) {
     }
 
     time_t now = time(nullptr);
-    tm* t = localtime(&now);
+    tm local{};
+    tm* t = localtime_r(&now, &local);
     if (!t) {
         return;
     }

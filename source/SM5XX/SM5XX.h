@@ -12,7 +12,11 @@ constexpr uint32_t FREQUENCY_CPU = 32768; // Hz = 32,768 kHZ => 30.517us 1 cycle
 
 
 class SM5XX {
-public : 
+    // Frontend observation only; excluded from emulated/save-state data.
+    uint64_t idle_sequence = 0;
+public :
+    uint64_t idle_sequence_number() const { return idle_sequence; }
+    bool sleeping() const { return is_sleep; } 
     virtual ~SM5XX() = default;
     SM5XX(const std::string& name) :
         name_cpu(name),

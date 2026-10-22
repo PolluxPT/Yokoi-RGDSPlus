@@ -147,6 +147,7 @@ void SM5XX::g_op_sm(){ // change 1byte per 1 in ram
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void SM5XX::g_op_cend(){ // stop clock = cpu is freeze (low power) and reactivate by input or each 1s (very useful for watch !)
+    ++idle_sequence;
     is_sleep = true;
 }; 
 

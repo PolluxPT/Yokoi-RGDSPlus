@@ -1,123 +1,106 @@
-# Yokoi: Game & Watch Emulator — RGDS+ Edition
+# Yokoi: Game & Watch Emulator — Edição RGDS / RGDS+
 
-  <img src="assets/Yokoi.png"  alt="Yokoi — Game & Watch Emulator for RGDS+" width="350">
+<img src="assets/Yokoi.png" alt="Yokoi — Game & Watch Emulator" width="350">
 
-[![Descarregar](https://img.shields.io/badge/Descarregar-v1.3-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
-
-**ROMs não incluídas.** Cria o teu pack seguindo as instruções do projeto original.
+[![Descarregar](https://img.shields.io/badge/Descarregar-v1.4-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
 
 **[English](README.md) | [Português](README.pt-PT.md)**
 
-Adaptação nativa e standalone do Yokoi para **Anbernic RGDS+ com Stock OS
-(Linux ARM64)**. Versão **1.3**. Esta é uma versão Linux; não é o APK Android
-do projeto original.
+Adaptação nativa e standalone do Yokoi para **Anbernic RGDS / RGDS+ com Stock OS, Linux ARM64**. Versão **1.4**.
 
-Emulador original de **RetroValou**: [projeto Yokoi](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds).
-Projeto de adaptação à RGDS+: **Filipe Baeta**, desenvolvido com assistência
-do ChatGPT/Codex. Revisão original de base: `f273025`.
+Emulador original: [RetroValou / Yokoi](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds), revisão de base `f273025`. Projeto de adaptação: **Filipe Baeta**, desenvolvido com assistência do ChatGPT/Codex. Esta é uma aplicação Linux, não o APK Android original.
 
+## Novidades da 1.4
 
-> **1.3:** Barras pretas, Segmentos/Cor de fundo, fabricantes com L2/R2, primeira utilização em inglês e correção de compatibilidade áudio SDL/ALSA para RGDS. Som na RGDS confirmado pelo utilizador. Mantém também o jogo selecionado no regresso à biblioteca. Ver [notas PT/EN](RELEASE_NOTES_v1.3.md).
+- **Comandos GAME nativos:** START envia GAME A e SELECT envia GAME B quando existe. A ROM gere o início e a nova partida; foi retirado o filtro adicional de Game Over.
+- **Máquinas com um único botão GAME:** usar START. Aplica-se às variantes de Climber e Balloon Fight; SELECT não é uma alternativa ao botão GAME.
+- Os jogos abrem em modo relógio. Soltar o botão usado para abrir o jogo antes de premir START ou SELECT para jogar.
+- **Segmentos** e **Cor de fundo** na Pausa, imediatamente depois de GAME B. Alteração durante o jogo, pré-visualização no ecrã inferior e valores guardados.
+- Sincronização do relógio com a hora local do Linux, segundo os mapas por jogo do original.
+- Último jogo aberto e fabricante memorizados entre arranques da aplicação.
 
-## ROMs não incluídas
+Ver [notas completas PT/EN](RELEASE_NOTES_v1.4.md).
 
-O repositório e as releases **não incluem ROMs, packs de jogos, artwork original
-dos jogos ou saves pessoais**. Cada utilizador deve fornecer o seu próprio pack
-compatível. Não são disponibilizadas ligações para descarregar jogos.
+## Funcionalidades
 
-## Criar o seu pack de jogos — projeto original
+- Dois ecrãs SDL2, navegação por toque e calibração dos controlos.
+- Menus PT/EN; inglês na primeira utilização, respeitando preferências existentes.
+- L1/R1 para navegar por inicial; L2/R2 para fabricantes e troca dos ecrãs durante o jogo.
+- Pausa com R calibrado ou START+SELECT.
+- Três slots manuais por jogo, gestão de saves e confirmação para sair.
+- Compatibilidade áudio RGDS e botões físicos de volume com ganho `0,35 × (nível/10)²`.
+- Volume da consola registado à entrada e reposto à saída.
 
-As ferramentas e instruções para preparar o pack estão no projeto de RetroValou:
+## Instalação
 
-- [GitHub original do Yokoi](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds)
-- [Guia CONVERT_ROM — secção Android (RGDS)](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds/blob/main/CONVERT_ROM/README.md#android-rgds)
+Descarregar **`Yokoi_RGDS_RGDSPlus_v1.4_Update.zip`** em [Releases](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest).
 
-Foi através desse projeto que foi criado o pack utilizado nos testes desta
-adaptação. Para esta versão Linux, seguir a secção **Android (RGDS)** e gerar
-**`yokoi_pack_rgds.ykp`**. Depois de cumprir os pré-requisitos do guia original,
-os comandos documentados, dentro da pasta `CONVERT_ROM`, são:
+1. Fechar o Yokoi e extrair o ZIP de atualização.
+2. Copiar `Roms` para a raiz do cartão, substituindo os ficheiros da aplicação.
+3. Manter `Yokoi_RGDSPlus/lib`, pack, configurações e `saves`.
+4. Abrir o mesmo `Yokoi.sh` em APPS. Não é necessário criar outro launcher nem recalibrar, salvo indicação da aplicação.
+
+É uma atualização para uma instalação Linux já funcional. Não inclui bibliotecas nem pack. Uma instalação nova necessita de runtime ARM64 compatível. O binário exige SDL2 e símbolos até GLIBC_2.38 / GLIBCXX_3.4.31; ver [notas Linux](linux/README.md).
+
+## Controlos
+
+| Ecrã | Controlo | Ação |
+|---|---|---|
+| Biblioteca | Direcional / deslizar no touch | Escolher jogo |
+| Biblioteca | A / START / dois toques | Abrir em modo relógio |
+| Biblioteca | Y | Carregar um slot ocupado |
+| Biblioteca | L1 / R1 | Inicial anterior / seguinte |
+| Biblioteca | L2 / R2 | Fabricante anterior / seguinte |
+| Biblioteca | X | Opções avançadas: Idioma, Definir botões, Voltar |
+| Biblioteca | R | Confirmação de saída |
+| Relógio / Fim da partida | START | GAME A ou o único botão GAME |
+| Relógio / Fim da partida | SELECT | GAME B, apenas quando existe na máquina original |
+| Durante o jogo | START / SELECT | Comportamento da ROM original |
+| Durante o jogo | R ou START+SELECT | Pausa |
+| Durante o jogo | L2 / R2 | Trocar ecrãs |
+| Pausa | GAME A / GAME B; A | Nova partida explícita, quando suportada |
+| Pausa | Segmentos / Cor de fundo | A ou Esquerda/Direita; pré-visualização no ecrã inferior |
+| Pausa | Cima / Baixo; A; B | Escolher; confirmar; continuar |
+| Pausa | Esquerda / Direita | Escolher slot |
+| Gestão de slots | Direcional; A; B | Escolher slot; pedir para apagar; voltar |
+
+START+SELECT continua reservado à Pausa. GAME A/B mantém os nomes do hardware original nos dois idiomas. Se a máquina tem um único GAME, usa apenas START: não é criado GAME B nem uma alternativa SELECT→START.
+
+## Criar o seu pack de jogos
+
+**Não são distribuídos ROMs, packs, artwork original dos jogos nem saves pessoais.**
+
+Seguir o [guia do Yokoi original — alvo Android (RGDS)](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds/blob/main/CONVERT_ROM/README.md#android-rgds). Depois de cumprir os pré-requisitos, dentro de `CONVERT_ROM`:
 
 ```sh
 python convert_original.py --target rgds
 python convert_3ds.py --target rgds
 ```
 
-Copiar o resultado para `Roms/APPS/Yokoi_RGDSPlus/yokoi_pack_rgds.ykp` no cartão.
-**O pack 3DS não é compatível. Não enviar o pack gerado para este repositório.**
+Colocar o seu `yokoi_pack_rgds.ykp` em `Roms/APPS/Yokoi_RGDSPlus/`. O pack 3DS não é suportado. Não enviar conteúdo dos jogos para este repositório.
 
-## Funcionalidades
+## Validação e limites conhecidos
 
-- Dois ecrãs SDL2 e fundos dos Panorama Screen corrigidos.
-- Interface PT/EN, menus azuis, opções avançadas e calibração dos botões.
-- Touch: deslizar para escolher e dois toques para GAME A.
-- L1/R1 para saltos por letra; L2/R2 para fabricantes na biblioteca e troca de ecrãs no jogo.
-- Botão R calibrado para Pausa, com alternativa START+SELECT.
-- Três slots manuais por jogo e gestão para apagar estados.
-- Confirmação para apagar/sair e novos GAME A/B através da pausa.
-- Carregamento das imagens de emulação apenas ao entrar no jogo.
-- Botões físicos com curva `0,35 × (nível/10)²`; o volume inicial da consola é reposto à saída.
+Os testes locais abrangem encaminhamento dos comandos, libertação do botão de abertura, Pausa, interface com comando virtual e save/load/reprodução com recuperação após ficheiros inválidos. A comparação controlada abrangeu 56 ROMs. O utilizador confirmou testes bem-sucedidos na consola dos 14 títulos/variantes selecionados para verificação adicional; ver [registo de validação](VALIDATION_v1.4.md). A configuração final do botão único usa apenas START, conforme esse feedback.
 
-## Instalação — pacote de atualização
+A release segue as regras nativas de cada ROM; não acrescenta um bloqueio universal de reinício durante a partida. O relógio depende dos mapas por título do original. O relato anterior de fullscreen/barras na RGDS continua adiado e não é apresentado como resolvido nesta versão.
 
-A release v1.3 é uma **atualização para uma instalação Linux RGDS+ já funcional**.
-Não inclui as bibliotecas de execução nem o pack de jogos.
+## Compilar
 
-1. Extrair o ZIP da release e copiar `Roms` para a raiz do cartão, substituindo os ficheiros da aplicação.
-2. Conservar `Yokoi_RGDSPlus/lib`, pack, configurações e pasta `saves` existentes.
-3. Se necessário, colocar o seu `yokoi_pack_rgds.ykp` junto ao executável `yokoi`.
-4. Abrir Yokoi em APPS e seguir a calibração, caso seja solicitada.
-
-Uma instalação nova necessita também das bibliotecas ARM64 compatíveis. O binário
-usa SDL2 e exige versões de símbolos até GLIBC_2.38 e GLIBCXX_3.4.31. Essas
-bibliotecas **não são distribuídas nesta release**. Ver `linux/README.md`.
-
-## Controlos
-
-| Ecrã | Controlo | Ação |
-|---|---|---|
-| Lista de jogos | Direcional / deslizar no touch | Escolher jogo |
-| Lista de jogos | A / START / dois toques | GAME A |
-| Lista de jogos | SELECT | GAME B |
-| Lista de jogos | Y | Carregar um slot ocupado |
-| Lista de jogos | L1 / R1 | Letra anterior / seguinte |
-| Lista de jogos | L2 / R2 | Fabricante anterior / seguinte |
-| Lista de jogos | X | Opções avançadas: segmentos, cor de fundo, idioma, botões e voltar |
-| Lista de jogos | R | Sair, com confirmação |
-| Durante o jogo | R ou START+SELECT | Pausa |
-| Durante o jogo | L2 / R2 | Trocar ecrãs |
-| Pausa | Cima / Baixo; A; B | Escolher; confirmar; continuar |
-| Pausa | Esquerda / Direita | Escolher slot |
-| Gerir slots | Direcional; A; B | Escolher slot; pedir para apagar; voltar |
-
-GAME A e GAME B mantêm os nomes do hardware original nos dois idiomas.
-Se o firmware não expuser R, manter START+SELECT nessa etapa permite ignorar a
-sua calibração.
-
-## Compilar o executável Linux
-
-Em Debian/Ubuntu, instalar compilador C++20 e desenvolvimento SDL2:
+Em Debian/Ubuntu:
 
 ```sh
 sudo apt install g++ libsdl2-dev
 bash linux/build.sh
 ```
 
-O resultado é `linux/build/yokoi`, para a arquitetura do computador de compilação.
-Para a RGDS+, compilar num sistema ARM64 ou usar as variáveis de compilação
-cruzada documentadas em [`linux/README.md`](linux/README.md).
-O código em `android/app/src/main/cpp` contém funções CPU/input partilhadas com
-esta versão Linux; o repositório não contém a aplicação Android completa.
+É criado `linux/build/yokoi` para a arquitetura do computador. Para a consola, compilar em ARM64 ou usar as [variáveis de compilação cruzada](linux/README.md). `android/app/src/main/cpp` contém auxiliares CPU/input partilhados, não a aplicação Android completa.
 
 ## Créditos e notas
 
-- Emulador original: [RetroValou](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds).
-- Créditos originais: MAME, projetos FPGA Game & Watch de Adam Gastineau,
-  documentação Sharp e ABerguerand. Ver [NOTICES.pt-PT.md](NOTICES.pt-PT.md).
-- PNG: LodePNG, copyright Lode Vandevenne, com aviso original conservado.
-- Fonte: DejaVu Sans, licença em `linux/FONT-LICENSE.txt`.
+- Yokoi original: [RetroValou](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds).
+- Créditos originais: MAME, projetos FPGA Game & Watch de Adam Gastineau, documentação Sharp e ABerguerand.
+- PNG: LodePNG, copyright Lode Vandevenne.
+- Fonte: DejaVu Sans, com avisos em `linux/FONT-LICENSE.txt`.
 
-O README original descreve o código como **Public Domain / Free to use**.
-Os componentes de terceiros conservam as suas próprias licenças e avisos.
-Não é aplicada uma nova licença global a esses componentes. Projeto não oficial,
-sem afiliação à Nintendo ou Anbernic. Os nomes e marcas identificam o hardware
-e os sistemas emulados, não constituindo uma alegação de apoio dessas entidades.
+O README original descreve o código como Public Domain / Free to use. São conservados os avisos dos componentes de terceiros; ver [NOTICES.pt-PT.md](NOTICES.pt-PT.md). Projeto não oficial, sem afiliação à Nintendo ou Anbernic.
