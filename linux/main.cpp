@@ -205,9 +205,11 @@ static bool calibrateSwap(SwapProfile&target,const ButtonProfile&profile,SDL_Gam
  next.ready=true;if(!next.save(ctl))return false;target=next;return target.load(ctl);
 }
 int main(int argc,char**argv){
- const Uint64 startupStart=SDL_GetTicks64();
  setvbuf(stdout,nullptr,_IONBF,0);signal(SIGTERM,stop);signal(SIGINT,stop);
- if(argc>1&&!strcmp(argv[1],"--version")){puts("Yokoi RGDS+ Linux 1.4 / upstream f273025");return 0;}
+ if(argc>1&&!strcmp(argv[1],"--version")){puts("Yokoi RGDS+ Linux 1.4.2 / upstream f273025");return 0;}
+ // Log before the first SDL call so startup failures can be localized.
+ puts("Yokoi 1.4.2: starting SDL (video/audio/controller)");
+ const Uint64 startupStart=SDL_GetTicks64();
  bool smoke=argc>1&&(!strcmp(argv[1],"--smoke-test")||!strcmp(argv[1],"--test-game"));
  bool testGame=argc>1&&!strcmp(argv[1],"--test-game");
  const char*pack=smoke&&argc>2?argv[2]:(argc>1&&!smoke?argv[1]:"yokoi_pack_rgds.ykp");

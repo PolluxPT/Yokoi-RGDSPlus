@@ -7,7 +7,7 @@ app="$base/Yokoi_RGDSPlus"
 cd "$app" || exit 1
 umask 077
 exec > "$app/Yokoi_Arranque.txt" 2>&1
-printf 'Yokoi RGDS+ 1.4\n'; date
+printf 'Yokoi RGDS+ 1.4.2\n'; date
 [ "$(uname -m)" = aarch64 ] || { echo 'Requer Linux ARM64'; exit 1; }
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/var/run}"
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}"

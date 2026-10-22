@@ -13,6 +13,8 @@
 #include "yokoi_input_mapping.h"
 #include "clock_sync.h"
 #include "native_setup.h"
+#include "single_game_gate.h"
+#include "juggler_gate.h"
 
 // Native-rate conditioning: remove DC and suppress square-wave harmonics near Nyquist.
 class BuzzerFilter {
@@ -53,7 +55,13 @@ public:
    std::atomic<int>pulseA{0},pulseB{0};unsigned soundWait=0;bool soundOn=false;
    BuzzerFilter filter(cpu->frequency/std::max(1u,cpu->sound_divide_frequency));
    NativeSetup setup;bool syncWatch=watchClock;
-   printf("Start/Select: native controls; ROM handles GAME A/B; ref=%s\n",ref.c_str());
+   bool single=input&&input->single_game_button;
+   bool juggler=dynamic_cast<MB_108*>(input)!=nullptr;
+   SingleGameGate gameGate(single,watchSession,*cpu);
+   JugglerGate jugglerGate(juggler,watchSession);
+   printf("Start/Select: %s; ref=%s\n",single?"single GAME, START guarded by native idle":juggler?"Mario The Juggler, GAME A/B guarded by native MISS icons":"native GAME A/B",ref.c_str());
+   if(bootMode>=0)gameGate.explicitStart();
+   if(bootMode>=0)jugglerGate.explicitStart();
    if(bootMode>=0)setup.explicitStart(bootMode==0?CTL_START:CTL_SELECT,cpu->frequency);
    int clockGrace=syncWatch?500:0;auto lastClock=origin;
    uint64_t resets=0;uint32_t minQueue=~0u,maxQueue=0;
@@ -64,8 +72,14 @@ public:
      origin=now-std::chrono::duration_cast<clock::duration>(std::chrono::duration<double>(done/double(cpu->frequency)));target=done;resets++;
     }
     unsigned steps=unsigned(std::min<uint64_t>(target>done?target-done:0,cpu->frequency/20));
-    uint32_t keys=setup.update(controls.load(),done,cpu->frequency);
-    if(setup.consumeStarted()){syncWatch=false;clockGrace=0;physicalStarted=true;printf("Start/Select: native button forwarded\n");}
+    uint32_t physical=controls.load();
+    uint32_t keys=setup.update(physical,done,cpu->frequency);
+    bool transportStarted=setup.consumeStarted();
+    keys=gameGate.update(keys,done,cpu->frequency,*cpu,physical);
+    keys=jugglerGate.update(keys,done,cpu->frequency,*cpu,physical);
+    bool accepted=gameGate.consumeStarted();
+    bool jugglerAccepted=jugglerGate.consumeStarted();
+    if((single||juggler)?(accepted||jugglerAccepted):transportStarted){syncWatch=false;clockGrace=0;physicalStarted=true;printf("Start/Select: native button forwarded\n");}
 #ifdef YOKOI_TEST_NATIVE_SETUP_KEYS
     YOKOI_TEST_NATIVE_SETUP_KEYS(keys);
 #endif

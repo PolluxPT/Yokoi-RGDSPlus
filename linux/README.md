@@ -1,4 +1,4 @@
-# Yokoi Linux / RGDS / RGDS+ — v1.4
+# Yokoi Linux / RGDS / RGDS+ — v1.4.2
 
 Native C++20/SDL2 frontend based on Yokoi revision `f273025`. No Android APK, JNI or RetroArch is required. The shared code under `android/app/src/main/cpp` supplies CPU/input utilities only.
 
@@ -30,11 +30,11 @@ The launcher selects the Stock Wayland/ALSA environment and writes `Yokoi_Arranq
 
 ## Setup input and game state
 
-`native_setup.h` forwards GAME A/B to the existing virtual-input mapping. It does not inspect lives, Game Over state, ROM hashes or inactivity. The ROM determines when native buttons start/replay a game and how they behave during play.
+`native_setup.h` forwards GAME A/B to the existing virtual-input mapping. It does not inspect lives, Game Over state, ROM hashes or inactivity. GAME A/B machines retain that native behaviour. `single_game_gate.h` additionally guards only mappings marked `single_game_button`: Balloon Fight, Climber and Super Mario Bros., both variants of each. START produces a bounded GAME pulse; SELECT is unmapped. Fresh CEND entries rearm GAME after native game end. Press eligibility is recorded before the Pause chord grace so an in-game press cannot be queued across Game Over. Holding through Game Over requires release and a new press. The guard is recreated from the existing CPU on resume/load without changing save formats; explicit Pause GAME actions remain intentional new games.
 
 The library-open button must be released first. A short grace reserves START+SELECT for Pause; short taps receive a minimum native input duration. Explicit Pause GAME A/B actions use a native setup pulse after initialization. A physical setup request stops Watch-only host-clock refresh so active game state is not overwritten.
 
-START maps to GAME A or the sole GAME button. SELECT maps to GAME B only where implemented by the original input configuration. There is no Climber SELECT-to-START alias. Both Climber variants and both Balloon Fight variants use START only.
+START maps to GAME A or the sole GAME button. SELECT maps to GAME B only where implemented by the original input configuration. There is no Climber SELECT-to-START alias. Both variants of Balloon Fight, Climber and Super Mario Bros. use START only.
 
 Watch initialization and refresh use upstream per-title local-time addresses. Loaded saves and active games are not continuously modified to match host time. `last-game.cfg` atomically stores the last opened ROM reference and manufacturer. Saves retain their existing format.
 
@@ -50,11 +50,16 @@ Black game margins preserve aspect ratio in the renderer. The separate RGDS full
 
 `--version` prints version without starting SDL. `--smoke-test PACK` renders a few library frames. `--test-game PACK INDEX` opens a selected game in Watch. Use `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy` for headless UI tests; `YOKOI_TEST_DUAL=1` enables two test windows on one display.
 
+- `tests/single_game_gate.cpp`: full CPU snapshot comparisons on all six external ROMs, active reset reproduction, native end/replay, held/late presses and saved-state resume.
 - `tests/native_setup.cpp`: opening hold, fresh/repeated setup presses, short taps, Pause chord and absence of SELECT-to-START alias.
-- `tests/single_game_input.cpp`: verifies actual Climber/Balloon Fight input mappings from an external pack: SELECT does not press GAME; START does.
+- `tests/single_game_input.cpp`: verifies actual Balloon Fight/Climber/Super Mario Bros. input mappings from an external pack: SELECT does not press GAME; START does.
 - `tests/physical_start_ui.cpp`: virtual-controller library entry, native START/SELECT forwarding, Pause and resume without recreating the CPU.
 - `tests/state_roundtrip.cpp`: save/load/replay and rollback after corrupted files across six real games.
 - `tests/synthetic_pack.py`: generates original synthetic test fixtures, with no commercial ROM data.
 - `tests/native_rom_compare.cpp`: reproducible RAM/LCD comparison with and without native setup presses, using an external pack.
 
-Other tests cover display settings, clock, language, calibration, library return, screen swaps, audio and volume. See `VALIDATION_v1.4.md` for recorded results and console feedback. Do not distribute test ROM packs, game artwork, personal saves or screenshots.
+Other tests cover display settings, clock, language, calibration, library return, screen swaps, audio and volume. See `VALIDATION_v1.4.2.md` for recorded results and console feedback. Do not distribute test ROM packs, game artwork, personal saves or screenshots.
+
+## v1.4.2 input fixes
+
+TF_104 GAME A/B wiring is corrected in virtual_input.h. juggler_gate.h applies only to MB_108, observing its native MISS/Watch display and protecting both setup buttons. Tests: juggler_tropical.cpp and physical_juggler_ui.cpp. SingleGameGate remains unchanged.
