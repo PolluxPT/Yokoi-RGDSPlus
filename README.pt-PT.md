@@ -2,24 +2,29 @@
 
 <img src="assets/Yokoi.png" alt="Yokoi — Game & Watch Emulator" width="350">
 
-[![Descarregar](https://img.shields.io/badge/Descarregar-v1.4-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
+[![Descarregar](https://img.shields.io/badge/Descarregar-v1.4.2-blue?style=for-the-badge)](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest)
 
 **[English](README.md) | [Português](README.pt-PT.md)**
 
-Adaptação nativa e standalone do Yokoi para **Anbernic RGDS / RGDS+ com Stock OS, Linux ARM64**. Versão **1.4**.
+Adaptação nativa e standalone do Yokoi para **Anbernic RGDS / RGDS+ com Stock OS, Linux ARM64**. Versão **1.4.2**.
 
 Emulador original: [RetroValou / Yokoi](https://github.com/RetroValou/Yokoi_Game_-_Watch_emulator_3ds), revisão de base `f273025`. Projeto de adaptação: **Filipe Baeta**, desenvolvido com assistência do ChatGPT/Codex. Esta é uma aplicação Linux, não o APK Android original.
 
-## Novidades da 1.4
+## Novidades da 1.4.2
 
-- **Comandos GAME nativos:** START envia GAME A e SELECT envia GAME B quando existe. A ROM gere o início e a nova partida; foi retirado o filtro adicional de Game Over.
-- **Máquinas com um único botão GAME:** usar START. Aplica-se às variantes de Climber e Balloon Fight; SELECT não é uma alternativa ao botão GAME.
+- **Tropical Fish:** corrigida a seleção GAME A/B pelos botões e na Pausa.
+- **Mario The Juggler:** START/SELECT protegidos durante a partida; ambos os modos disponíveis novamente depois do Game Over.
+
+- **Correção do reset com GAME único:** em Balloon Fight, Climber e Super Mario Bros., START inicia e permite nova partida, mas fica bloqueado durante o jogo. Depois do fim, soltar e voltar a premir. As restantes máquinas GAME A/B mantêm o comportamento nativo, com a proteção de Mario The Juggler indicada acima.
+- **Máquinas com um único botão GAME:** usar START. Aplica-se às variantes de Balloon Fight, Climber e Super Mario Bros.; SELECT não é uma alternativa ao botão GAME.
 - Os jogos abrem em modo relógio. Soltar o botão usado para abrir o jogo antes de premir START ou SELECT para jogar.
 - **Segmentos** e **Cor de fundo** na Pausa, imediatamente depois de GAME B. Alteração durante o jogo, pré-visualização no ecrã inferior e valores guardados.
 - Sincronização do relógio com a hora local do Linux, segundo os mapas por jogo do original.
 - Último jogo aberto e fabricante memorizados entre arranques da aplicação.
 
-Ver [notas completas PT/EN](RELEASE_NOTES_v1.4.md).
+Ver [notas completas PT/EN](RELEASE_NOTES_v1.4.2.md).
+
+Problema conhecido: o Bus error (código 135) reportado no arranque da RGDS ainda não foi reproduzido nem demonstrado resolvido. Ver [comparação de compatibilidade](COMPATIBILITY_v1.4.2.md).
 
 ## Funcionalidades
 
@@ -33,7 +38,7 @@ Ver [notas completas PT/EN](RELEASE_NOTES_v1.4.md).
 
 ## Instalação
 
-Descarregar **`Yokoi_RGDS_RGDSPlus_v1.4_Update.zip`** em [Releases](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest).
+Descarregar **`Yokoi_RGDS_RGDSPlus_v1.4.2_Update.zip`** em [Releases](https://github.com/PolluxPT/Yokoi-RGDSPlus/releases/latest).
 
 1. Fechar o Yokoi e extrair o ZIP de atualização.
 2. Copiar `Roms` para a raiz do cartão, substituindo os ficheiros da aplicação.
@@ -55,7 +60,7 @@ Descarregar **`Yokoi_RGDS_RGDSPlus_v1.4_Update.zip`** em [Releases](https://gith
 | Biblioteca | R | Confirmação de saída |
 | Relógio / Fim da partida | START | GAME A ou o único botão GAME |
 | Relógio / Fim da partida | SELECT | GAME B, apenas quando existe na máquina original |
-| Durante o jogo | START / SELECT | Comportamento da ROM original |
+| Durante o jogo | START / SELECT | GAME único e Mario The Juggler: bloqueados durante a partida; restantes: comportamento nativo |
 | Durante o jogo | R ou START+SELECT | Pausa |
 | Durante o jogo | L2 / R2 | Trocar ecrãs |
 | Pausa | GAME A / GAME B; A | Nova partida explícita, quando suportada |
@@ -81,9 +86,9 @@ Colocar o seu `yokoi_pack_rgds.ykp` em `Roms/APPS/Yokoi_RGDSPlus/`. O pack 3DS n
 
 ## Validação e limites conhecidos
 
-Os testes locais abrangem encaminhamento dos comandos, libertação do botão de abertura, Pausa, interface com comando virtual e save/load/reprodução com recuperação após ficheiros inválidos. A comparação controlada abrangeu 56 ROMs. O utilizador confirmou testes bem-sucedidos na consola dos 14 títulos/variantes selecionados para verificação adicional; ver [registo de validação](VALIDATION_v1.4.md). A configuração final do botão único usa apenas START, conforme esse feedback.
+Comparações locais do estado completo do CPU verificam as seis variantes com GAME único: relógio inicial, START, bloqueio durante a partida, pressões mantidas e perto do fim, carregamento de saves e nova partida, com dois intervalos de leitura. Mantêm-se os testes da interface com comando virtual e compatibilidade de saves; ver [validação](VALIDATION_v1.4.2.md). Falta confirmar esta correção na consola.
 
-A release segue as regras nativas de cada ROM; não acrescenta um bloqueio universal de reinício durante a partida. O relógio depende dos mapas por título do original. O relato anterior de fullscreen/barras na RGDS continua adiado e não é apresentado como resolvido nesta versão.
+A proteção contra reinício aplica-se às três famílias com GAME único e ao Mario The Juggler. Tropical Fish usa o mapeamento GAME A/B corrigido. O relógio depende dos mapas por título do original. O relato anterior de fullscreen/barras na RGDS continua adiado e não é apresentado como resolvido nesta versão.
 
 ## Compilar
 

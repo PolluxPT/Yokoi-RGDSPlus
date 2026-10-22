@@ -41,6 +41,7 @@ class Virtual_Input {
         uint8_t left_configuration = CONF_NOTHING;
         uint8_t right_configuration = CONF_NOTHING;
         bool two_player = false;
+        bool single_game_button = false;
         bool use_multiplexage = true;
 
         Virtual_Input(SM5XX* c) : cpu(c) {}   
@@ -1266,6 +1267,7 @@ class CJ_93 : public Virtual_Input{
 class YM_801 : public Virtual_Input{
     public : 
         YM_801(SM5XX* c) : Virtual_Input(c) {
+            single_game_button = true;
             left_configuration = CONF_4_BUTTON_DIRECTION;
             right_configuration = CONF_1_BUTTON_ACTION;
         }
@@ -1298,6 +1300,7 @@ class YM_801 : public Virtual_Input{
 class DR_802 : public Virtual_Input{
     public : 
         DR_802(SM5XX* c) : Virtual_Input(c) {
+            single_game_button = true;
             left_configuration = CONF_4_BUTTON_DIRECTION;
             right_configuration = CONF_1_BUTTON_ACTION;
         }
@@ -1330,6 +1333,7 @@ class DR_802 : public Virtual_Input{
 class BF_803 : public Virtual_Input{
     public : 
         BF_803(SM5XX* c) : Virtual_Input(c) {
+            single_game_button = true;
             left_configuration = CONF_4_BUTTON_DIRECTION;
             right_configuration = CONF_1_BUTTON_ACTION;
         }
@@ -1556,8 +1560,8 @@ class TF_104 : public Virtual_Input{
                 case PART_SETUP:
                     switch (button) {
                         case BUTTON_TIME: cpu->input_set(1, 0, state); break;
-                        case BUTTON_GAMEB: cpu->input_set(1, 1, state); break;
-                        case BUTTON_GAMEA: cpu->input_set(1, 2, state); break;
+                        case BUTTON_GAMEA: cpu->input_set(1, 1, state); break;
+                        case BUTTON_GAMEB: cpu->input_set(1, 2, state); break;
                         default: break; } break;
                 case PART_LEFT:
                     switch (button) {
