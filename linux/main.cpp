@@ -207,7 +207,7 @@ static bool calibrateSwap(SwapProfile&target,const ButtonProfile&profile,SDL_Gam
 int main(int argc,char**argv){
  const Uint64 startupStart=SDL_GetTicks64();
  setvbuf(stdout,nullptr,_IONBF,0);signal(SIGTERM,stop);signal(SIGINT,stop);
- if(argc>1&&!strcmp(argv[1],"--version")){puts("Yokoi RGDS+ Linux 1.3 / upstream f273025");return 0;}
+ if(argc>1&&!strcmp(argv[1],"--version")){puts("Yokoi RGDS+ Linux 1.4 / upstream f273025");return 0;}
  bool smoke=argc>1&&(!strcmp(argv[1],"--smoke-test")||!strcmp(argv[1],"--test-game"));
  bool testGame=argc>1&&!strcmp(argv[1],"--test-game");
  const char*pack=smoke&&argc>2?argv[2]:(argc>1&&!smoke?argv[1]:"yokoi_pack_rgds.ykp");
@@ -243,16 +243,18 @@ int main(int argc,char**argv){
  const Uint64 packStart=SDL_GetTicks64();
  std::string err;bool loaded=gw_pack::load(pack,&err);printf("Pack: %s / %s\n",pack,loaded?"OK":err.c_str());
  printf("Startup: SDL/input=%llums pack=%llums\n",(unsigned long long)(packStart-startupStart),(unsigned long long)(SDL_GetTicks64()-packStart));
- size_t count=gw_pack::game_count(),selected=0,lastPlayed=0;bool libraryWaitRelease=false;bool playing=false,paused=false;int pauseSelection=0,slot=1,advancedSelection=0;bool managing=false,advanced=false;int confirmation=0;bool confirmYes=false;std::string toast;uint64_t toastUntil=0;std::unique_ptr<SM5XX>cpu;std::unique_ptr<Virtual_Input>input;const GW_rom*g=nullptr;std::vector<Segment>segs;
+ size_t count=gw_pack::game_count(),selected=0,lastPlayed=0;bool libraryWaitRelease=false;bool playing=false,paused=false,watchMode=false,clockSupported=false,gameWaitRelease=false;int pauseSelection=0,slot=1,advancedSelection=0;bool managing=false,advanced=false;int confirmation=0;bool confirmYes=false;std::string toast;uint64_t toastUntil=0;std::unique_ptr<SM5XX>cpu;std::unique_ptr<Virtual_Input>input;const GW_rom*g=nullptr;std::vector<Segment>segs;
  SDL_AudioDeviceID audio=0;SDL_AudioSpec audioSpec{};SDL_AudioStream*stream=nullptr;uint32_t prev=0;EmuWorker worker;
  auto silence=[&](){worker.stop();if(audio){SDL_ClearQueuedAudio(audio);SDL_CloseAudioDevice(audio);audio=0;}if(stream){SDL_FreeAudioStream(stream);stream=nullptr;}};
  auto prefillAudio=[&](){if(!audio)return;size_t bytes=size_t(audioSpec.freq)*40/1000*audioSpec.channels*(SDL_AUDIO_BITSIZE(audioSpec.format)/8);std::vector<uint8_t>z(bytes,audioSpec.silence);SDL_QueueAudio(audio,z.data(),int(z.size()));};
  menu::Library library;
  auto selectGame=[&](){g=gw_pack::game_at(selected);for(int i=0;i<np;i++){drop(panels[i]);if(g&&i==1)panels[i].console=texture(panels[i],g->path_console);}};
  auto prepareGameGraphics=[&](){for(int i=0;i<np;i++){auto&p=panels[i];if(!p.seg)p.seg=texture(p,g->path_segment,!(g->segment_info[3]&1));if(!p.bg)p.bg=texture(p,g->path_background);if(!p.console)p.console=texture(p,g->path_console);}};
- auto startGame=[&](int mode=0){if(!g)return;lastPlayed=selected;silence();prepareGameGraphics();input.reset();cpu.reset();if(!yokoi_cpu_create_instance(cpu,g->rom,g->size_rom)){err="CPU nao suportado";return;}
+ auto startGame=[&](int mode=-1){if(!g)return;lastPlayed=selected;silence();prepareGameGraphics();input.reset();cpu.reset();if(!yokoi_cpu_create_instance(cpu,g->rom,g->size_rom)){err="CPU nao suportado";return;}
   if(cpu->get_cpu_type_id()==2&&(!g->melody||g->size_melody<256)){err="ROM de melodia ausente/incompleta";fprintf(stderr,"%s: %s\n",g->name.c_str(),err.c_str());cpu.reset();return;}
-  cpu->load_rom(g->rom,g->size_rom);cpu->load_rom_melody(g->melody,g->size_melody);cpu->init();cpu->load_rom_time_addresses(g->ref);yokoi_cpu_set_time_if_needed(cpu.get());input.reset(get_input_config(cpu.get(),g->ref));if(input)cpu->set_input_multiplexage(input->use_multiplexage);
+  cpu->load_rom(g->rom,g->size_rom);cpu->load_rom_melody(g->melody,g->size_melody);cpu->init();std::string clockRef=g->ref;std::replace(clockRef.begin(),clockRef.end(),'-','_');cpu->load_rom_time_addresses(clockRef);clockSupported=get_time_addresses(clockRef)!=nullptr;warmClockRom(cpu.get(),clockSupported);watchMode=mode==-1;
+  if(!menu::saveLastGame(g))fprintf(stderr,"Could not save last game\n");
+  time_t hostNow=time(nullptr);tm hostTime{};localtime_r(&hostNow,&hostTime);printf("Clock: local=%04d-%02d-%02d %02d:%02d:%02d mapping=%s ref=%s\n",hostTime.tm_year+1900,hostTime.tm_mon+1,hostTime.tm_mday,hostTime.tm_hour,hostTime.tm_min,hostTime.tm_sec,clockSupported?"supported":"unavailable",clockRef.c_str());input.reset(get_input_config(cpu.get(),g->ref));if(input)cpu->set_input_multiplexage(input->use_multiplexage);
   segs.assign(g->segment,g->segment+g->size_segment);for(auto&s:segs)s.state=s.buffer_state=false;
   SDL_AudioSpec want{},have{};want.freq=48000;want.format=AUDIO_S16SYS;want.channels=1;want.samples=1024;
   audio=SDL_OpenAudioDevice(nullptr,0,&want,&have,SDL_AUDIO_ALLOW_ANY_CHANGE);
@@ -261,18 +263,22 @@ int main(int argc,char**argv){
    stream=SDL_NewAudioStream(AUDIO_S16SYS,1,cpu->frequency/std::max(1u,cpu->sound_divide_frequency),have.format,have.channels,have.freq);
    if(stream){prefillAudio();SDL_PauseAudioDevice(audio,0);}else{fprintf(stderr,"Audio conversion: %s\n",SDL_GetError());silence();}
   }else fprintf(stderr,"Audio: %s\n",SDL_GetError());
-  printf("Game: %s (%s), mode=%d\n",g->name.c_str(),g->ref.c_str(),mode);worker.gain=volume.gain();worker.start(cpu.get(),input.get(),segs,audio,stream,mode);playing=true;paused=false;
+  printf("Game: %s (%s), mode=%d\n",g->name.c_str(),g->ref.c_str(),mode);worker.gain=volume.gain();worker.start(cpu.get(),input.get(),segs,audio,stream,mode,watchMode&&clockSupported,g->ref,g->rom,g->size_rom,watchMode);playing=true;paused=false;gameWaitRelease=true;
+#ifdef YOKOI_TEST_GAME_CREATED
+  YOKOI_TEST_GAME_CREATED();
+#endif
  };
  auto resume=[&](){
   if(!playing)return;if(stream)SDL_AudioStreamClear(stream);
   if(audio){SDL_ClearQueuedAudio(audio);prefillAudio();SDL_PauseAudioDevice(audio,0);}
-  worker.gain=volume.gain();worker.start(cpu.get(),input.get(),segs,audio,stream,-1);paused=false;
+  if(watchMode&&clockSupported)syncHostClock(cpu.get());worker.gain=volume.gain();worker.start(cpu.get(),input.get(),segs,audio,stream,-1,watchMode&&clockSupported,g->ref,g->rom,g->size_rom,watchMode);paused=false;gameWaitRelease=true;
  };
- auto pause=[&](){if(!playing||paused)return;worker.stop();worker.snapshot(segs);if(audio){SDL_PauseAudioDevice(audio,1);SDL_ClearQueuedAudio(audio);}paused=true;pauseSelection=0;};
+ auto pause=[&](){if(!playing||paused)return;worker.stop();if(worker.physicalStarted.load())watchMode=false;worker.snapshot(segs);if(audio){SDL_PauseAudioDevice(audio,1);SDL_ClearQueuedAudio(audio);}paused=true;pauseSelection=0;};
  auto notify=[&](const std::string&message){toast=message;toastUntil=SDL_GetTicks64()+2200;printf("Yokoi: %s\n",message.c_str());};
  auto refresh=[&](){for(auto&s:segs)s.state=s.buffer_state=cpu->get_segments_state(s.id[0],s.id[1],s.id[2]);};
+ selected=menu::loadLastGame();lastPlayed=selected;
  if(smoke&&argc>3)selected=std::min(count?count-1:0,size_t(atoi(argv[3])));
- library.init(selected);if(count)selectGame();if(testGame&&count)startGame();if(smoke&&!testGame&&getenv("YOKOI_TEST_ADVANCED"))advanced=true;
+ library.init(selected);if(count){selectGame();printf("Library: %s manufacturer=%d position=%zu/%zu\n",g->ref.c_str(),library.manufacturer,library.position(selected)+1,library.games.size());}if(testGame&&count)startGame();if(smoke&&!testGame&&getenv("YOKOI_TEST_ADVANCED"))advanced=true;
  bool startupReported=false;
  uint64_t frame=0,ticks=0;double next=SDL_GetPerformanceCounter()/(double)SDL_GetPerformanceFrequency();
  while(!stopped){
@@ -323,12 +329,12 @@ int main(int argc,char**argv){
   for(auto&gesture:gestures){
    if(confirmation&&gesture.tap){if(gesture.y>.55f&&gesture.y<.69f){confirmYes=gesture.x>.5f;activate=true;}continue;}
    if(!playing&&count){
-    if(advanced){if(gesture.tap&&gesture.y*768>=160&&gesture.y*768<160+5*85){advancedSelection=int((gesture.y*768-160)/85);activate=true;}}
+    if(advanced){if(gesture.tap&&gesture.y*768>=240&&gesture.y*768<240+3*85){advancedSelection=int((gesture.y*768-240)/85);activate=true;}}
     else if(gesture.swipe){selected=library.move(selected,gesture.swipe);selectGame();}
     else if(gesture.doubled)activate=true;
    }else if(paused&&gesture.tap){
     if(managing){if(gesture.y>.24f&&gesture.y<.65f)slot=std::clamp(int((gesture.y*768-190)/95)+1,1,3);if(gesture.y>.72f)activate=true;}
-    else if(gesture.y*768>=112&&gesture.y*768<112+8*56){pauseSelection=int((gesture.y*768-112)/56);activate=true;}
+    else if(gesture.y*768>=112&&gesture.y*768<112+10*44){pauseSelection=int((gesture.y*768-112)/44);activate=true;}
    }
   }
   if(confirmation){
@@ -337,17 +343,13 @@ int main(int argc,char**argv){
    else if(activate||(edge&CTL_A)){if(confirmYes){if(confirmation==1)quit=true;else notify(state_store::erase(g,slot)?tr("Estado apagado","State deleted"):tr("Não foi possível apagar","Could not delete state"));}confirmation=0;}
   }else if(!playing&&count&&!toggle){
    if(advanced){
-    if(edge&CTL_DPAD_UP)advancedSelection=(advancedSelection+4)%5;
-    if(edge&CTL_DPAD_DOWN)advancedSelection=(advancedSelection+1)%5;
+    if(edge&CTL_DPAD_UP)advancedSelection=(advancedSelection+2)%3;
+    if(edge&CTL_DPAD_DOWN)advancedSelection=(advancedSelection+1)%3;
     if(edge&CTL_B)advanced=false;
-    else if(activate||(edge&(CTL_A|CTL_START))||(advancedSelection<2&&(edge&(CTL_DPAD_LEFT|CTL_DPAD_RIGHT)))){
-     if(advancedSelection<2){int direction=(edge&CTL_DPAD_LEFT)?-1:1;if(advancedSelection==0)menu::segmentPreset=(menu::segmentPreset+3+direction)%3;else menu::backgroundPreset=(menu::backgroundPreset+6+direction)%6;
-      if(!menu::saveDisplay())notify(tr("Erro ao guardar opções","Could not save options"));
-      for(auto&p:panels)if(p.staticLayer){SDL_DestroyTexture(p.staticLayer);p.staticLayer=nullptr;}
-     }
-     else if(advancedSelection==2){menu::english=!menu::english;if(!menu::saveLanguage())notify(tr("Erro ao guardar idioma","Could not save language"));}
-     else if(advancedSelection==3&&ctl){ButtonProfile revised=profile;if(calibrateButtons(revised,ctl,raw,volume,true)){profile=revised;calibrateSwap(swapProfile,profile,ctl,raw,volume);}prev=0;latch=PressLatch();raw.takeKeys();}
-     else if(advancedSelection==4)advanced=false;
+    else if(activate||(edge&(CTL_A|CTL_START))){
+     if(advancedSelection==0){menu::english=!menu::english;if(!menu::saveLanguage())notify(tr("Erro ao guardar idioma","Could not save language"));}
+     else if(advancedSelection==1&&ctl){ButtonProfile revised=profile;if(calibrateButtons(revised,ctl,raw,volume,true)){profile=revised;calibrateSwap(swapProfile,profile,ctl,raw,volume);}prev=0;latch=PressLatch();raw.takeKeys();}
+     else if(advancedSelection==2)advanced=false;
     }
    }else if(edge&CTL_X){advanced=true;advancedSelection=0;}
    else{
@@ -357,11 +359,10 @@ int main(int argc,char**argv){
     if(edge&(CTL_DPAD_UP|CTL_DPAD_LEFT))selected=library.move(selected,-1);
     if(previousLetter)selected=library.jump(selected,-1);if(nextLetter)selected=library.jump(selected,1);
     if(old!=selected)selectGame();
-    if(activate||(edge&(CTL_A|CTL_START)))startGame(0);
-    else if(edge&CTL_SELECT)startGame(1);
+    if(activate||(edge&(CTL_A|CTL_START)))startGame(-1);
     else if(edge&CTL_Y){
      if(!state_store::exists(g,slot))for(int n=1;n<=3;n++)if(state_store::exists(g,n)){slot=n;break;}
-     startGame(-1);pause();if(state_store::load(cpu.get(),g,slot)){refresh();resume();notify(tr("Estado carregado","State loaded"));}else notify(tr("Sem estado guardado","No saved state"));
+     startGame(-2);pause();if(state_store::load(cpu.get(),g,slot)){refresh();resume();notify(tr("Estado carregado","State loaded"));}else notify(tr("Sem estado guardado","No saved state"));
     }
    }
   }else if(playing&&paused&&!toggle){
@@ -371,8 +372,13 @@ int main(int argc,char**argv){
     if(edge&CTL_B)managing=false;
     else if(activate||(edge&CTL_A)){if(state_store::exists(g,slot)){confirmation=2;confirmYes=false;}else notify(tr("Slot vazio","Empty slot"));}
    }else{
-    if(edge&CTL_DPAD_UP)pauseSelection=(pauseSelection+7)%8;if(edge&CTL_DPAD_DOWN)pauseSelection=(pauseSelection+1)%8;
-    if(edge&CTL_DPAD_LEFT)slot=(slot+1)%3+1;if(edge&CTL_DPAD_RIGHT)slot=slot%3+1;
+    if(edge&CTL_DPAD_UP)pauseSelection=(pauseSelection+9)%10;if(edge&CTL_DPAD_DOWN)pauseSelection=(pauseSelection+1)%10;
+    if(pauseSelection==7||pauseSelection==8){
+     if(edge&(CTL_DPAD_LEFT|CTL_DPAD_RIGHT)){int direction=(edge&CTL_DPAD_LEFT)?-1:1;if(pauseSelection==7)menu::segmentPreset=(menu::segmentPreset+3+direction)%3;else menu::backgroundPreset=(menu::backgroundPreset+6+direction)%6;
+      if(!menu::saveDisplay())notify(tr("Erro ao guardar opções","Could not save options"));
+      for(auto&p:panels)if(p.staticLayer){SDL_DestroyTexture(p.staticLayer);p.staticLayer=nullptr;}
+     }
+    }else{if(edge&CTL_DPAD_LEFT)slot=(slot+1)%3+1;if(edge&CTL_DPAD_RIGHT)slot=slot%3+1;}
     if(edge&CTL_B)resume();
     else if(activate||(edge&CTL_A))switch(pauseSelection){
      case 0:resume();break;
@@ -383,16 +389,27 @@ int main(int argc,char**argv){
       printf("Library return: %s manufacturer=%d position=%zu/%zu\n",g->ref.c_str(),library.manufacturer,library.position(selected)+1,library.games.size());
       break;
      case 2:notify(state_store::save(cpu.get(),g,slot)?std::string(tr("Estado salvo no slot ","State saved in slot "))+std::to_string(slot):tr("Não foi possível salvar","Could not save state"));break;
-     case 3:if(state_store::load(cpu.get(),g,slot)){refresh();resume();notify(tr("Estado carregado","State loaded"));}else notify(tr("Estado vazio, inválido ou de outro jogo","Empty, invalid or mismatched state"));break;
+     case 3:if(state_store::load(cpu.get(),g,slot)){watchMode=false;refresh();resume();notify(tr("Estado carregado","State loaded"));}else notify(tr("Estado vazio, inválido ou de outro jogo","Empty, invalid or mismatched state"));break;
      case 4:managing=true;break;
      case 5:startGame(0);break;case 6:startGame(1);break;
-     case 7:confirmation=1;confirmYes=false;break;
+     case 7:case 8:
+      if(pauseSelection==7)menu::segmentPreset=(menu::segmentPreset+1)%3;else menu::backgroundPreset=(menu::backgroundPreset+1)%6;
+      if(!menu::saveDisplay())notify(tr("Erro ao guardar opções","Could not save options"));
+      for(auto&p:panels)if(p.staticLayer){SDL_DestroyTexture(p.staticLayer);p.staticLayer=nullptr;}
+      break;
+     case 9:confirmation=1;confirmYes=false;break;
     }
    }
   }
   if(quit)break;
-  if(playing&&!paused){worker.controls=m&~(CTL_START|CTL_SELECT);worker.gain=volume.gain();}
-  if(smoke&&playing&&!paused&&getenv("YOKOI_TEST_PAUSE_AT_FRAME")&&frame==uint64_t(atoi(getenv("YOKOI_TEST_PAUSE_AT_FRAME"))))pause();
+  if(playing&&!paused){if(gameWaitRelease&&!(m&(CTL_START|CTL_SELECT)))gameWaitRelease=false;
+   worker.controls=gameWaitRelease?(m&~(CTL_START|CTL_SELECT)):m;
+   if(worker.physicalStarted.load())watchMode=false;
+   worker.gain=volume.gain();}
+  if(smoke&&playing&&!paused&&getenv("YOKOI_TEST_PAUSE_AT_FRAME")&&frame==uint64_t(atoi(getenv("YOKOI_TEST_PAUSE_AT_FRAME")))){pause();if(getenv("YOKOI_TEST_PAUSE_SELECTION"))pauseSelection=std::clamp(atoi(getenv("YOKOI_TEST_PAUSE_SELECTION")),0,9);}
+#ifdef YOKOI_TEST_SESSION
+  YOKOI_TEST_SESSION(watchMode,paused);
+#endif
   #ifdef YOKOI_TEST_LIBRARY_SELECTION
   YOKOI_TEST_LIBRARY_SELECTION(selected,library.manufacturer,playing);
 #endif
@@ -417,7 +434,7 @@ int main(int argc,char**argv){
       ui::rect(p.r,30,594,964,1,0x363b45);
       label(p,35,607,std::string(tr("Data de lançamento: ","Release date: "))+g->date,0,menu::muted);
       int x=35;for(int n=1;n<=3;n++){std::string title="Slot "+std::to_string(n)+": ";label(p,x,641,title,0,menu::muted);x+=ui::width(title,0);bool occupied=state_store::exists(g,n);std::string status=occupied?tr("Sim","Yes"):tr("Não","No");label(p,x,641,status,0,occupied?menu::highlight:menu::muted);x+=ui::width(status,0);if(n<3){label(p,x,641,"   |   ",0,menu::muted);x+=ui::width("   |   ",0);}}
-      label(p,35,690,tr("A / START: GAME A   SELECT: GAME B   Y: Carregar estado","A / START: GAME A   SELECT: GAME B   Y: Load state"),0,menu::muted);
+      label(p,35,690,tr("A / START: Abrir relógio   Y: Carregar estado","A / START: Open watch   Y: Load state"),0,menu::muted);
       label(p,35,727,tr("L1/R1: Salto   X: Opções avançadas   R: Sair","L1/R1: Jump   X: Advanced options   R: Exit"),0,menu::muted);
      }else if(g&&p.console&&g->console_info){
       auto ci=g->console_info;SDL_Rect src{ci[2],ci[3],ci[4],ci[5]};int tw,th;SDL_QueryTexture(p.console,nullptr,nullptr,&tw,&th);src.y=th-src.y-src.h;SDL_Rect dest{0,0,1024,768};SDL_RenderCopyEx(p.r,p.console,&src,&dest,0,nullptr,SDL_FLIP_HORIZONTAL);
@@ -428,7 +445,9 @@ int main(int argc,char**argv){
      if(two&&!horizontal)drawGame(p,g,segs,np==1?0:role,false);
      else if(role==0||np==1)drawGame(p,g,segs,0,horizontal);
      else if(p.console&&g->console_info){auto ci=g->console_info;SDL_Rect src{ci[2],ci[3],ci[4],ci[5]};fit(p,p.console,src,0,0,ci[4],ci[5],ci[4],ci[5]);}
-     if(paused){
+     bool displayPreview=paused&&!managing&&(pauseSelection==7||pauseSelection==8);
+     if(displayPreview&&i==1)drawGame(p,g,segs,two&&!horizontal?role:0,horizontal);
+     if(paused&&(!displayPreview||i==0)){
       ui::rect(p.r,0,0,1024,768,menu::bg,230);ui::rect(p.r,80,25,864,managing?713:665,menu::bg);
       menuHeader(p,120,36,784,managing?tr("Gerir slots","Manage slots"):tr("Pausa","Pause"),managing?2:3);
       if(managing){
@@ -436,17 +455,17 @@ int main(int argc,char**argv){
        ui::rect(p.r,120,530,784,1,menu::line);label(p,125,560,tr("A: Apagar slot selecionado","A: Delete selected slot"),1,menu::orange);
        label(p,125,655,tr("Direcional: Escolher     B: Voltar","D-pad: Select     B: Back"),0,menu::muted);
       }else{
-       for(int j=0;j<8;j++){int y=112+j*56;selectionRow(p,104,y,816,52,j==pauseSelection);label(p,125,y+7,menu::pauseItem(j),j==pauseSelection?2:1,j==pauseSelection?menu::fg:menu::muted);}
+       for(int j=0;j<10;j++){int y=112+j*44;selectionRow(p,104,y,816,42,j==pauseSelection);label(p,125,y+4,menu::pauseItem(j),j==pauseSelection?2:1,j==pauseSelection?menu::fg:menu::muted);}
        ui::rect(p.r,120,574,784,1,menu::line);label(p,120,589,"Slot "+std::to_string(slot)+" / 3   "+(state_store::exists(g,slot)?state_store::stamp(g,slot):tr("Vazio","Empty")),0,menu::muted);
-       label(p,120,638,tr("Esq./Dir.: Slot     A: Confirmar     B: Voltar","Left/Right: Slot     A: Confirm     B: Back"),0,menu::muted);
+       label(p,120,638,tr("Esq./Dir.: Alterar / Slot     A: Confirmar     B: Voltar","Left/Right: Change / Slot     A: Confirm     B: Back"),0,menu::muted);
       }
      }
     }
     if(advanced&&!playing&&i==0){
      clear(p);menuHeader(p,40,40,944,tr("Opções avançadas","Advanced options"));
-     std::string items[]={std::string(tr("Segmentos: ","Segments: "))+menu::segmentName(),std::string(tr("Cor de fundo: ","Background color: "))+menu::backgroundName(),std::string(tr("Idioma: ","Language: "))+(menu::english?"EN":"PT")+"   PT / EN",tr("Definir botões","Configure buttons"),tr("Voltar","Back")};
-     for(int j=0;j<5;j++){int y=160+j*85;selectionRow(p,40,y,944,70,j==advancedSelection);label(p,65,y+17,items[j],j==advancedSelection?2:1,j==advancedSelection?menu::fg:menu::muted);}
-     ui::rect(p.r,40,660,944,1,menu::line);label(p,40,685,tr("Esq./Dir.: Alterar     A: Confirmar     B: Voltar","Left/Right: Change     A: Confirm     B: Back"),0,menu::muted);
+     std::string items[]={std::string(tr("Idioma: ","Language: "))+(menu::english?"EN":"PT")+"   PT / EN",tr("Definir botões","Configure buttons"),tr("Voltar","Back")};
+     for(int j=0;j<3;j++){int y=240+j*85;selectionRow(p,40,y,944,70,j==advancedSelection);label(p,65,y+17,items[j],j==advancedSelection?2:1,j==advancedSelection?menu::fg:menu::muted);}
+     ui::rect(p.r,40,660,944,1,menu::line);label(p,40,685,tr("A: Confirmar     B: Voltar","A: Confirm     B: Back"),0,menu::muted);
     }
     if(confirmation&&(playing||i==0)){
      ui::rect(p.r,0,0,1024,768,0x000000,180);ui::rect(p.r,130,235,764,300,menu::bg);ui::rect(p.r,165,319,694,1,menu::line);

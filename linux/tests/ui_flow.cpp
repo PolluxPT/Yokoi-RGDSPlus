@@ -18,10 +18,7 @@ int main(int argc,char**argv){assert(argc>1);std::string pack=std::filesystem::a
   auto touch=[&](float x,float y,bool down){SDL_Event e{};e.type=down?SDL_FINGERDOWN:SDL_FINGERUP;e.tfinger.x=x;e.tfinger.y=y;e.tfinger.touchId=1;e.tfinger.fingerId=1;SDL_PushEvent(&e);SDL_Delay(70);};
   SDL_Delay(450);touch(.8,.5,true);touch(.2,.5,false);SDL_Delay(120);touch(.2,.5,true);touch(.8,.5,false);SDL_Delay(120);
   button(5);button(4); // next initial, previous initial: Ball
-  button(2);button(0); // first option: Segments -> Dark
-  hat(SDL_HAT_DOWN);button(0); // Background color -> Light blue
-  {std::ifstream f("display.cfg");int a,b;f>>a>>b;assert(a==2&&b==1);}
-  hat(SDL_HAT_DOWN);button(0); // Language: English default -> Portuguese
+  button(2);button(0); // Language is the first Advanced option; EN -> PT
   {std::ifstream f("language.cfg");std::string value;f>>value;assert(value=="PT");}
   button(0); // Portuguese -> English
   {std::ifstream f("language.cfg");std::string value;f>>value;assert(value=="EN");}
@@ -53,6 +50,6 @@ int main(int argc,char**argv){assert(argc>1);std::string pack=std::filesystem::a
  });
  char name[]="test";char*args[]={name,pack.data(),nullptr};int result=yokoi_program(2,args);feeder.join();assert(result==0);assert(!swapPanels);assert(testSwapCount.load()==2);
  assert(!std::ifstream(("saves/"+savedRef+".slot2.yks")).good());assert(std::ifstream(("saves/"+savedRef+".slot3.yks")).good());
- std::filesystem::remove_all("saves");for(auto p:{"buttons-rgds-v2.cfg","special-rgds.cfg","language.cfg","display.cfg","swap-rgds-v1.cfg"})remove(p);assert(chdir("/")==0);rmdir(dir);
+ std::filesystem::remove_all("saves");for(auto p:{"buttons-rgds-v2.cfg","special-rgds.cfg","language.cfg","display.cfg","last-game.cfg","swap-rgds-v1.cfg"})remove(p);assert(chdir("/")==0);rmdir(dir);
  puts("PASS: language persistence, letter jumps, touch, calibrated special button despite wrong Guide mapping, L2/R2, slot2 save/load, deletion cancel/confirm, slot3 discovery and exit confirmation");
 }

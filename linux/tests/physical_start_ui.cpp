@@ -1,0 +1,15 @@
+#include <atomic>
+static std::atomic<int> boots{0};static std::atomic<bool> watch{false},pauseState{false};
+#define YOKOI_TEST_GAME_CREATED() (++boots)
+#define YOKOI_TEST_SESSION(w,p) do{watch=w;pauseState=p;}while(0)
+#define YOKOI_TEST_NATIVE_SETUP_KEYS(k) do{if((k)&CTL_START)++forwardedStart;if((k)&CTL_SELECT)++forwardedSelect;}while(0)
+static std::atomic<int>forwardedStart{0},forwardedSelect{0};
+#define main yokoi_program
+#include "../main.cpp"
+#undef main
+#include <cassert>
+#include <filesystem>
+int main(int argc,char**argv){assert(argc==2);std::string pack=std::filesystem::absolute(argv[1]);char dir[]="/tmp/yk-start-ui-XXXXXX";assert(mkdtemp(dir));assert(chdir(dir)==0);assert(SDL_Init(SDL_INIT_GAMECONTROLLER)==0);int i=SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER,0,16,1);assert(i>=0);char guid[64];SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i),guid,sizeof guid);std::string map=std::string(guid)+",start-test,a:b0,b:b1,x:b2,y:b3,start:b7,back:b6,guide:b12,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,";assert(SDL_GameControllerAddMapping(map.c_str())>=0);auto*j=SDL_JoystickOpen(i);auto*c=SDL_GameControllerOpen(i);assert(j&&c);ButtonProfile profile;int buttons[]={7,6,4,5,0,1,2,3};for(int n=0;n<8;n++)profile.buttons[n]=buttons[n];assert(profile.save(c));profile.specialType='B';profile.special=12;assert(profile.saveSpecial(c));SwapProfile swap;swap.ready=true;swap.bindings[0]={'B',8};swap.bindings[1]={'B',9};assert(swap.save(c));SDL_GameControllerClose(c);
+ std::thread feeder([j]{auto button=[&](int n){SDL_JoystickSetVirtualButton(j,n,1);SDL_Delay(80);SDL_JoystickSetVirtualButton(j,n,0);SDL_Delay(180);};SDL_Delay(400);SDL_JoystickSetVirtualButton(j,7,1);SDL_Delay(1400);assert(watch&&boots==1);SDL_JoystickSetVirtualButton(j,7,0);SDL_Delay(250);button(7);assert(!watch&&boots==1);button(6);assert(!watch&&boots==1);assert(forwardedStart>0&&forwardedSelect>0);
+  SDL_JoystickSetVirtualButton(j,7,1);SDL_JoystickSetVirtualButton(j,6,1);SDL_Delay(200);assert(pauseState&&boots==1);SDL_JoystickSetVirtualButton(j,7,0);SDL_JoystickSetVirtualButton(j,6,0);SDL_Delay(150);button(1);assert(!pauseState&&boots==1);button(12);SDL_JoystickSetVirtualHat(j,0,SDL_HAT_UP);SDL_Delay(80);SDL_JoystickSetVirtualHat(j,0,SDL_HAT_CENTERED);SDL_Delay(180);button(0);SDL_JoystickSetVirtualHat(j,0,SDL_HAT_RIGHT);SDL_Delay(80);SDL_JoystickSetVirtualHat(j,0,SDL_HAT_CENTERED);SDL_Delay(180);button(0);
+ });char name[]="test";char*args[]={name,pack.data(),nullptr};assert(yokoi_program(2,args)==0);feeder.join();assert(boots==1);assert(chdir("/")==0);std::filesystem::remove_all(dir);puts("PASS: library START hold leaves Watch; fresh physical START starts natively; native SELECT forwarded during play; Pause chord preserved; no CPU recreation");}

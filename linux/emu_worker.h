@@ -11,6 +11,8 @@
 #include "std/segment.h"
 #include "virtual_i_o/virtual_input.h"
 #include "yokoi_input_mapping.h"
+#include "clock_sync.h"
+#include "native_setup.h"
 
 // Native-rate conditioning: remove DC and suppress square-wave harmonics near Nyquist.
 class BuzzerFilter {
@@ -36,19 +38,24 @@ class EmuWorker {
  std::mutex mutex;
  std::vector<Segment> latest;
 public:
+ std::atomic<bool> physicalStarted{false};
  std::atomic<uint32_t> controls{0};std::atomic<float> gain{0};
  ~EmuWorker(){stop();}
  void stop(){stopRequested=true;if(thread.joinable())thread.join();}
  uint64_t cycleCount()const{return cycles.load();}
  void snapshot(std::vector<Segment>&out){std::lock_guard<std::mutex>lock(mutex);out=latest;}
- void start(SM5XX*cpu,Virtual_Input*input,const std::vector<Segment>&metadata,SDL_AudioDeviceID audio,SDL_AudioStream*stream,int bootMode=-1){
-  stop();latest=metadata;cycles=0;stopRequested=false;controls=0;
+ void start(SM5XX*cpu,Virtual_Input*input,const std::vector<Segment>&metadata,SDL_AudioDeviceID audio,SDL_AudioStream*stream,int bootMode=-1,bool watchClock=false,const std::string&ref="",const uint8_t*rom=nullptr,size_t romSize=0,bool watchSession=false){
+  stop();physicalStarted=false;latest=metadata;cycles=0;stopRequested=false;controls=0;
   thread=std::thread([=,this]{
    using clock=std::chrono::steady_clock;auto origin=clock::now();uint64_t done=0;
    auto lastReport=origin,lastSnapshot=origin,lastAudio=origin;
    std::vector<Segment>segs=metadata;std::vector<int16_t>pcm;pcm.reserve(1024);std::vector<uint8_t>converted(8192);
    std::atomic<int>pulseA{0},pulseB{0};unsigned soundWait=0;bool soundOn=false;
    BuzzerFilter filter(cpu->frequency/std::max(1u,cpu->sound_divide_frequency));
+   NativeSetup setup;bool syncWatch=watchClock;
+   printf("Start/Select: native controls; ROM handles GAME A/B; ref=%s\n",ref.c_str());
+   if(bootMode>=0)setup.explicitStart(bootMode==0?CTL_START:CTL_SELECT,cpu->frequency);
+   int clockGrace=syncWatch?500:0;auto lastClock=origin;
    uint64_t resets=0;uint32_t minQueue=~0u,maxQueue=0;
    while(!stopRequested){
     auto now=clock::now();double elapsed=std::chrono::duration<double>(now-origin).count();
@@ -57,12 +64,16 @@ public:
      origin=now-std::chrono::duration_cast<clock::duration>(std::chrono::duration<double>(done/double(cpu->frequency)));target=done;resets++;
     }
     unsigned steps=unsigned(std::min<uint64_t>(target>done?target-done:0,cpu->frequency/20));
-    uint32_t keys=controls.load()&~(CTL_START|CTL_SELECT);
-    if(bootMode>=0&&done>=cpu->frequency*2&&done<cpu->frequency*2+cpu->frequency/4)keys|=bootMode==0?CTL_START:CTL_SELECT;
+    uint32_t keys=setup.update(controls.load(),done,cpu->frequency);
+    if(setup.consumeStarted()){syncWatch=false;clockGrace=0;physicalStarted=true;printf("Start/Select: native button forwarded\n");}
+#ifdef YOKOI_TEST_NATIVE_SETUP_KEYS
+    YOKOI_TEST_NATIVE_SETUP_KEYS(keys);
+#endif
     if(input)yokoi_input_apply_controller_mask(input,keys,0,pulseA,pulseB);
     bool changed=false;
     for(unsigned i=0;i<steps;i++){
-     cpu->step();++done;
+     bool executed=cpu->step();++done;
+     if(executed&&clockGrace>0){--clockGrace;syncHostClock(cpu);}
      if(cpu->segments_state_are_update){
       for(auto&s:segs){bool n=cpu->get_segments_state(s.id[0],s.id[1],s.id[2]);bool b=(s.state&&(n||s.buffer_state))||(n&&s.buffer_state);s.state=n;s.buffer_state=b;}
       cpu->segments_state_are_update=false;changed=true;
@@ -70,6 +81,7 @@ public:
      soundOn|=cpu->get_active_sound();
      if(++soundWait>=std::max(1u,cpu->sound_divide_frequency)){pcm.push_back(filter.sample(soundOn,gain.load()));soundWait=0;soundOn=false;}
     }
+    if(syncWatch&&now-lastClock>=std::chrono::seconds(1)){syncHostClock(cpu);lastClock=now;}
     cycles=done;
     if(changed||now-lastSnapshot>=std::chrono::milliseconds(8)){
      std::lock_guard<std::mutex>lock(mutex);latest=segs;lastSnapshot=now;
